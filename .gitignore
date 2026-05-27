@@ -1,0 +1,22 @@
+# Python cache
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+
+# Local environment
+.venv/
+venv/
+.env
+
+# Large local data files
+data/*.json
+data/*.jsonl
+data/*.csv
+data/*.xlsx
+
+# Generated model artifacts
+models/*.pkl
+models/*.joblib
+
+# Keep small placeholder files
+!models/.gitkeep
