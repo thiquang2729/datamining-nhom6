@@ -1,0 +1,16 @@
+{
+    "input_path": "data/news_data.csv",
+    "output_cleaned_path": "data/cleaned_news.csv",
+    "output_processed_path": "data/processed_news.csv",
+    "cleaning": {
+        "required_columns": ["title", "main_content", "url"],
+        "min_words": 50,
+        "max_words": 10000
+    },
+    "deduplication": {
+        "method": "md5",
+        "column": "main_content",
+        "keep": "first"
+    },
+    "encoding": "utf-8-sig"
+}
