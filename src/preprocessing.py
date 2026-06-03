@@ -4,6 +4,7 @@ from underthesea import word_tokenize
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.decomposition import TruncatedSVD
 import os
+import joblib
 
 class TextPreprocessor:
     def __init__(self, stopword_path=None):
@@ -24,14 +25,13 @@ class TextPreprocessor:
 
     def process_text(self, text):
         """Tiền xử lý văn bản: Lowercase -> Tokenize -> Remove Stopwords"""
-        if not isinstance(text, str):
+        if not isinstance(text, str) or text.strip() == "":
             return ""
         
         # 1. Lowercase
         text = text.lower()
         
         # 2. Word Tokenization (Tách từ tiếng Việt)
-        # Sử dụng format="text" để nối các từ phức bằng dấu gạch dưới (ví dụ: trí_tuệ_nhân_tạo)
         tokens = word_tokenize(text, format="text")
         
         # 3. Lọc Stopwords
@@ -55,32 +55,50 @@ class TextPreprocessor:
         self.svd = TruncatedSVD(n_components=n_components)
         return self.svd.fit_transform(X)
 
-# --- Test area cho Đại ca Nhớ ---
+    def save_features(self, X, matrix_path, vectorizer_path):
+        """Lưu ma trận đặc trưng và vectorizer để Member 4 sử dụng"""
+        print(f"--- Đang lưu ma trận đặc trưng vào {matrix_path} ---")
+        joblib.dump(X, matrix_path)
+        print(f"--- Đang lưu vectorizer vào {vectorizer_path} ---")
+        joblib.dump(self.vectorizer, vectorizer_path)
+
+# --- Thực thi nhiệm vụ cho Đại ca Nhớ ---
 if __name__ == "__main__":
-    # Dữ liệu mẫu để test
-    sample_docs = [
-        "Nhớ đang sử dụng Linux Mint để làm bài tập Data Mining.",
-        "Trí tuệ nhân tạo và học máy là những lĩnh vực rất thú vị.",
-        "Việc tách từ tiếng Việt giúp máy tính hiểu văn bản tốt hơn."
-    ]
+    # Đường dẫn file
+    DATA_PATH = "data/cleaned_news.csv"
+    STOPWORD_PATH = "data/vietnamese-stopwords.txt"
+    OUTPUT_MATRIX = "data/tfidf_features.pkl"
+    OUTPUT_VECTORIZER = "models/vectorizer.pkl"
     
-    # Khởi tạo preprocessor
-    processor = TextPreprocessor(stopword_path="data/vietnamese-stopwords.txt")
+    # Tạo thư mục models nếu chưa có
+    if not os.path.exists("models"):
+        os.makedirs("models")
+
+    # Khởi tạo preprocessor với stopwords Đại ca đã thêm
+    print(f"--- Khởi tạo Preprocessor với {STOPWORD_PATH} ---")
+    processor = TextPreprocessor(stopword_path=STOPWORD_PATH)
     
-    # 1. Chạy tiền xử lý
-    print("\n[1] Đang tiền xử lý văn bản...")
-    cleaned_docs = [processor.process_text(doc) for doc in sample_docs]
-    for i, doc in enumerate(cleaned_docs):
-        print(f"Doc {i+1}: {doc}")
+    # 1. Lấy dữ liệu từ Member 2 (Thi)
+    if os.path.exists(DATA_PATH):
+        print(f"--- Đang đọc dữ liệu từ {DATA_PATH} ---")
+        df = pd.read_csv(DATA_PATH)
         
-    # 2. Chạy TF-IDF
-    print("\n[2] Đang tạo ma trận TF-IDF...")
-    tfidf_matrix = processor.fit_transform_tfidf(cleaned_docs)
-    print(f"Ma trận TF-IDF có kích thước: {tfidf_matrix.shape}")
-    
-    # 3. Giảm chiều (Test với n_components=2 vì dữ liệu mẫu ít)
-    print("\n[3] Đang thử nghiệm giảm chiều...")
-    reduced_matrix = processor.reduce_dimension(tfidf_matrix, n_components=2)
-    print(f"Kích thước sau khi giảm chiều: {reduced_matrix.shape}")
-    
-    print("\n--- Hoàn tất chạy thử! Đại ca thấy mượt không? ---")
+        # Kiểm tra cột main_content
+        if 'main_content' in df.columns:
+            print("--- Đang tiền xử lý nội dung văn bản (có thể mất chút thời gian)... ---")
+            # Chỉ lấy 100 dòng đầu để test nhanh, Đại ca muốn chạy hết thì bỏ .head(100)
+            df_subset = df.head(100).copy() 
+            df_subset['processed_content'] = df_subset['main_content'].apply(processor.process_text)
+            
+            # 2. Trích xuất đặc trưng TF-IDF
+            X_tfidf = processor.fit_transform_tfidf(df_subset['processed_content'])
+            print(f"Ma trận TF-IDF hoàn tất: {X_tfidf.shape}")
+            
+            # 3. Chuyển giao dữ liệu: Lưu lại cho Member 4
+            processor.save_features(X_tfidf, OUTPUT_MATRIX, OUTPUT_VECTORIZER)
+            
+            print("\n--- NHIỆM VỤ HOÀN TẤT! Đã xử lý xong dữ liệu của Thi và lưu lại cho Member 4. ---")
+        else:
+            print("Lỗi: Không tìm thấy cột 'main_content' trong file của Thi.")
+    else:
+        print(f"Lỗi: Không tìm thấy file {DATA_PATH}. Đại ca kiểm tra lại đường dẫn nhé!")
