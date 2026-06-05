@@ -144,9 +144,8 @@ def normalize_text(text):
 3. **Báo cáo trùng lặp:**
    - Thống kê số lượng bản ghi trùng theo từng nguồn (`domain`)
    - Tỷ lệ trùng lặp tổng thể
-
+   - xóa các trường dữ liệu không cần thiết
 **Công cụ sử dụng:** `hashlib`, `pandas`
-
 ```python
 # Cấu trúc hàm chính
 def compute_md5(text):
