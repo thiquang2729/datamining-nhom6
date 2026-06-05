@@ -180,11 +180,12 @@ def generate_dedup_report(df_before, df_after):
     → Bước 2: Làm sạch dữ liệu (cleaning.py - Thành viên 2)
     → Bước 3: Chuẩn hóa văn bản (normalizer.py - Thành viên 2)
     → Bước 4: Xử lý trùng lặp (deduplicator.py - Thành viên 2)
-    → Bước 5: Tiền xử lý NLP (preprocessing.py - Thành viên 3)
+    → Bước 5: Tiền xử lý NLP và tạo TF-IDF (preprocessing.py - Thành viên 3)
     → Bước 6: Phân cụm & Gán nhãn (modeling.py - Thành viên 4)
     → Bước 7: Huấn luyện mô hình (Thành viên 5)
     → Bước 8: Xuất dữ liệu & Báo cáo (Thành viên 6)
-    → [data/cleaned_news.csv] + [data/processed_news.csv]
+    → [data/cleaned_news.csv]
+    → [data/processed_news.csv] + [data/tfidf_features.pkl] + [models/vectorizer.pkl]
 ```
 
 **Logic xử lý chi tiết:**
@@ -203,6 +204,26 @@ def generate_dedup_report(df_before, df_after):
    - Try/catch cho từng bước
    - Ghi log lỗi chi tiết
    - Cho phép skip bước bị lỗi hoặc dừng toàn bộ
+
+4. **Tích hợp bước tiền xử lý NLP của Thành viên 3:**
+   - Nhận dữ liệu đã qua làm sạch, chuẩn hóa và loại trùng từ các bước trước.
+   - Đọc cột nội dung chính `main_content`.
+   - Tạo cột `processed_content` sau khi chuyển chữ thường, loại bỏ ký tự không cần thiết và lọc stopwords tiếng Việt.
+   - Trích xuất đặc trưng văn bản bằng TF-IDF.
+   - Lưu dữ liệu đã tiền xử lý vào `data/processed_news.csv`.
+   - Lưu ma trận đặc trưng vào `data/tfidf_features.pkl`.
+   - Lưu bộ vectorizer đã fit vào `models/vectorizer.pkl` để tái sử dụng khi phân cụm, huấn luyện hoặc dự đoán dữ liệu mới.
+
+**Tóm tắt cho slide bước NLP:**
+
+```
+cleaned_news.csv
+    → lowercase + lọc ký tự nhiễu
+    → loại stopwords tiếng Việt
+    → tạo cột processed_content
+    → TF-IDF vectorization
+    → processed_news.csv + tfidf_features.pkl + vectorizer.pkl
+```
 
 ```python
 # Cấu trúc chính
@@ -252,7 +273,16 @@ class DataPipeline:
         "column": "main_content",
         "keep": "first"
     },
-    "encoding": "utf-8"
+    "preprocessing": {
+        "stopword_path": "data/vietnamese-stopwords.txt",
+        "content_column": "main_content",
+        "processed_column": "processed_content",
+        "tfidf_matrix_path": "data/tfidf_features.pkl",
+        "vectorizer_path": "models/vectorizer.pkl",
+        "n_components": null,
+        "max_features": null
+    },
+    "encoding": "utf-8-sig"
 }
 ```
 
@@ -266,7 +296,7 @@ src/
 ├── normalizer.py      # [MỚI] Module chuẩn hóa Unicode/HTML (TV2)
 ├── deduplicator.py    # [MỚI] Module xử lý trùng lặp MD5 (TV2)
 ├── pipeline.py        # [MỚI] Pipeline tổng hợp (TV2)
-├── preprocessing.py   # Module NLP (TV3 - chờ code)
+├── preprocessing.py   # Module NLP + TF-IDF (TV3)
 ├── modeling.py        # Module ML (TV4/5 - chờ code)
 └── predict.py         # Module dự đoán (TV5 - chờ code)
 
@@ -274,7 +304,11 @@ config.json            # [MỚI] File cấu hình pipeline
 data/
 ├── news_data.csv      # Dữ liệu thô (~19.120 bản ghi)
 ├── cleaned_news.csv   # [SẼ TẠO] Dữ liệu sau khi làm sạch
-└── processed_news.csv # [SẼ TẠO] Dữ liệu sau toàn bộ pipeline
+├── processed_news.csv # [SẼ TẠO] Dữ liệu có thêm cột processed_content
+└── tfidf_features.pkl # [SẼ TẠO] Ma trận đặc trưng TF-IDF
+
+models/
+└── vectorizer.pkl     # [SẼ TẠO] TF-IDF vectorizer đã fit
 ```
 
 ---

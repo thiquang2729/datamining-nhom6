@@ -7,10 +7,14 @@ Pipeline gồm các bước:
     2. Làm sạch dữ liệu (cleaning.py)
     3. Chuẩn hóa văn bản (normalizer.py)
     4. Xử lý trùng lặp (deduplicator.py)
-    5-8. Placeholder cho các thành viên khác (chờ tích hợp)
+    5. Tiền xử lý NLP và trích xuất đặc trưng TF-IDF (preprocessing.py)
+    6-8. Placeholder cho các thành viên khác (chờ tích hợp)
 
 Output:
     - data/cleaned_news.csv: Dữ liệu đã làm sạch
+    - data/processed_news.csv: Dữ liệu đã thêm cột processed_content
+    - data/tfidf_features.pkl: Ma trận đặc trưng TF-IDF
+    - models/vectorizer.pkl: Vectorizer đã fit
 """
 
 import os
@@ -25,6 +29,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from cleaning import clean_data, visualize_cleaning_report
 from normalizer import normalize_dataframe
 from deduplicator import remove_duplicates, generate_dedup_report, visualize_dedup_report
+from preprocessing import preprocess_nlp
 from logger import (
     log_info, log_success, log_error, log_warning,
     log_step_end, log_summary, StepTimer
@@ -79,6 +84,15 @@ class DataPipeline:
                 "method": "md5",
                 "column": "main_content",
                 "keep": "first"
+            },
+            "preprocessing": {
+                "stopword_path": "data/vietnamese-stopwords.txt",
+                "content_column": "main_content",
+                "processed_column": "processed_content",
+                "tfidf_matrix_path": "data/tfidf_features.pkl",
+                "vectorizer_path": "models/vectorizer.pkl",
+                "n_components": None,
+                "max_features": None
             },
             "encoding": "utf-8-sig"
         }
@@ -216,16 +230,58 @@ class DataPipeline:
         return self
 
     # ===================================================================
-    # BƯỚC 5-8: PLACEHOLDER (Chờ code các thành viên khác)
+    # BƯỚC 5: TIỀN XỬ LÝ NLP
     # ===================================================================
     def step_preprocess_nlp(self):
-        """Bước 5: Tiền xử lý NLP (Thành viên 3 - PLACEHOLDER)."""
-        log_warning("Bước 5: Tiền xử lý NLP - PLACEHOLDER (chờ code Thành viên 3)")
-        # TODO: Tích hợp code preprocessing.py của Thành viên 3
-        # from preprocessing import preprocess_nlp
-        # self.df = preprocess_nlp(self.df)
+        """Bước 5: Tiền xử lý NLP và trích xuất đặc trưng TF-IDF."""
+        if self.df is None:
+            log_error("Chưa có dữ liệu! Hãy chạy các bước trước khi tiền xử lý NLP.")
+            return self
+
+        before = len(self.df)
+        preprocessing_config = self.config.get('preprocessing', {})
+        stopword_path = self._get_path(
+            preprocessing_config.get('stopword_path', 'data/vietnamese-stopwords.txt')
+        )
+        text_column = preprocessing_config.get('content_column', 'main_content')
+        processed_column = preprocessing_config.get('processed_column', 'processed_content')
+        output_matrix_path = self._get_path(
+            preprocessing_config.get('tfidf_matrix_path', 'data/tfidf_features.pkl')
+        )
+        output_vectorizer_path = self._get_path(
+            preprocessing_config.get('vectorizer_path', 'models/vectorizer.pkl')
+        )
+        n_components = preprocessing_config.get('n_components')
+        max_features = preprocessing_config.get('max_features')
+
+        with StepTimer("Bước 5: Tiền xử lý NLP", before) as timer:
+            self.df, X_features = preprocess_nlp(
+                self.df,
+                stopword_path=stopword_path,
+                text_column=text_column,
+                processed_column=processed_column,
+                output_matrix_path=output_matrix_path,
+                output_vectorizer_path=output_vectorizer_path,
+                n_components=n_components,
+                max_features=max_features,
+            )
+
+            after = len(self.df)
+            log_success(f"Đã tạo ma trận TF-IDF: {X_features.shape}")
+            log_step_end("Bước 5: Tiền xử lý NLP", before, after, timer.elapsed)
+            self.step_stats.append({
+                'step': 'preprocess_nlp',
+                'before': before,
+                'after': after,
+                'time': timer.elapsed
+            })
+
+        self._save_checkpoint('05_preprocessed')
         return self
 
+    # ===================================================================
+    # BƯỚC 6-8: PLACEHOLDER (Chờ code các thành viên khác)
+    # ===================================================================
     def step_clustering(self):
         """Bước 6: Phân cụm & Gán nhãn (Thành viên 4 - PLACEHOLDER)."""
         log_warning("Bước 6: Phân cụm & Gán nhãn - PLACEHOLDER (chờ code Thành viên 4)")
@@ -249,13 +305,15 @@ class DataPipeline:
     # ===================================================================
     # LƯU KẾT QUẢ
     # ===================================================================
-    def save_output(self):
+    def save_output(self, output_config_key='output_cleaned_path'):
         """Lưu dữ liệu đã xử lý ra file CSV."""
         if self.df is None:
             log_error("Không có dữ liệu để lưu!")
             return self
 
-        output_path = self._get_path(self.config['output_cleaned_path'])
+        output_path = self._get_path(
+            self.config.get(output_config_key, self.config['output_cleaned_path'])
+        )
 
         # Tạo thư mục nếu chưa có
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
@@ -271,7 +329,7 @@ class DataPipeline:
     def run_all(self):
         """
         Chạy toàn bộ pipeline từ đầu đến cuối.
-        Hiện tại chỉ chạy bước 1-4 (phần của Thành viên 2).
+        Chạy các bước đã tích hợp: làm sạch, chuẩn hóa, loại trùng và NLP.
         """
         total_start = time.time()
 
@@ -287,8 +345,11 @@ class DataPipeline:
             self.step_normalize()
             self.step_deduplicate()
 
-            # Lưu kết quả
-            self.save_output()
+            # Lưu dữ liệu sau làm sạch/dedup, sau đó tiếp tục bước NLP
+            self.save_output('output_cleaned_path')
+
+            self.step_preprocess_nlp()
+            self.save_output('output_processed_path')
 
             # Tổng kết
             total_after = len(self.df)

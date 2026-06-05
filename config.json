@@ -12,5 +12,14 @@
         "column": "main_content",
         "keep": "first"
     },
+    "preprocessing": {
+        "stopword_path": "data/vietnamese-stopwords.txt",
+        "content_column": "main_content",
+        "processed_column": "processed_content",
+        "tfidf_matrix_path": "data/tfidf_features.pkl",
+        "vectorizer_path": "models/vectorizer.pkl",
+        "n_components": null,
+        "max_features": null
+    },
     "encoding": "utf-8-sig"
 }
