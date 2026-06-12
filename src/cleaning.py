@@ -200,14 +200,13 @@ def visualize_cleaning_report(stats, save_dir=None):
     fig1, ax1 = plt.subplots(figsize=(10, 6))
     fig1.suptitle('Chi tiết các loại lỗi đã loại bỏ (Bước Làm sạch)', fontsize=14, fontweight='bold')
 
-    categories = ['Dòng rỗng\n(NaN/empty)', 'URL lỗi', 'Quá ngắn\n(<50 từ)', 'Quá dài\n(>10000 từ)']
+    categories = ['Dòng rỗng\n(NaN/empty)', 'Quá ngắn\n(<50 từ)', 'Quá dài\n(>10000 từ)']
     values = [
         stats.get('empty_removed', 0),
-        stats.get('url_invalid', 0),
         stats.get('too_short', 0),
         stats.get('too_long', 0)
     ]
-    colors = ['#FF6B6B', '#FFB347', '#87CEEB', '#DDA0DD']
+    colors = ['#FF6B6B', '#87CEEB', '#DDA0DD']
 
     bars = ax1.bar(categories, values, color=colors, edgecolor='white', linewidth=1.5)
     ax1.set_ylabel('Số bản ghi bị loại', fontsize=12)

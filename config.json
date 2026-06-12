@@ -8,7 +8,6 @@
         "max_words": 10000
     },
     "deduplication": {
-        "method": "md5",
         "column": "main_content",
         "keep": "first"
     },

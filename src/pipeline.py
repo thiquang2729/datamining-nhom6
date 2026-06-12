@@ -27,7 +27,7 @@ import pandas as pd
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from cleaning import clean_data, visualize_cleaning_report
-from normalizer import normalize_dataframe
+from normalizer import normalize_dataframe, visualize_normalize_report
 from deduplicator import remove_duplicates, generate_dedup_report, visualize_dedup_report
 from preprocessing import preprocess_nlp
 from logger import (
@@ -81,7 +81,6 @@ class DataPipeline:
                 "max_words": 10000
             },
             "deduplication": {
-                "method": "md5",
                 "column": "main_content",
                 "keep": "first"
             },
@@ -178,7 +177,11 @@ class DataPipeline:
         before = len(self.df)
 
         with StepTimer("Bước 3: Chuẩn hóa văn bản", before) as timer:
-            self.df = normalize_dataframe(self.df)
+            self.df, normalize_stats = normalize_dataframe(self.df)
+
+            # Vẽ và lưu 3 biểu đồ báo cáo chuẩn hóa văn bản vào thư mục notebooks/
+            visualize_normalize_report(normalize_stats)
+
             after = len(self.df)
             log_step_end("Bước 3: Chuẩn hóa", before, after, timer.elapsed)
             self.step_stats.append({
@@ -195,7 +198,7 @@ class DataPipeline:
     # BƯỚC 4: XỬ LÝ TRÙNG LẶP (Thành viên 2)
     # ===================================================================
     def step_deduplicate(self):
-        """Bước 4: Loại bỏ bài viết trùng lặp bằng MD5 hash."""
+        """Bước 4: Loại bỏ bài viết trùng lặp (kiểm tra bài viết lặp lại)."""
         if self.df is None:
             log_error("Chưa có dữ liệu! Hãy chạy step_load_data() trước.")
             return self
@@ -324,6 +327,92 @@ class DataPipeline:
         return self
 
     # ===================================================================
+    # TRỰC QUAN HÓA PIPELINE TỔNG THỂ
+    # ===================================================================
+    def _visualize_pipeline_funnel(self, save_dir=None):
+        """
+        Vẽ biểu đồ Waterfall/Funnel thể hiện số bản ghi giảm dần qua từng bước pipeline.
+        Lưu ra file ảnh PNG trong thư mục notebooks/.
+        """
+        import matplotlib
+        matplotlib.use('Agg')
+        import matplotlib.pyplot as plt
+        import seaborn as sns
+
+        plt.rcParams['font.family'] = 'Segoe UI'
+        sns.set_theme(style="whitegrid", palette="muted")
+
+        if save_dir is None:
+            save_dir = os.path.join(self.project_root, 'notebooks')
+        os.makedirs(save_dir, exist_ok=True)
+
+        if not self.step_stats:
+            log_warning("Không có thống kê pipeline để vẽ biểu đồ.")
+            return
+
+        # Thu thập dữ liệu từ step_stats
+        step_names = []
+        step_values = []
+        step_name_map = {
+            'load_data': 'Dữ liệu thô',
+            'clean': 'Làm sạch',
+            'normalize': 'Chuẩn hóa',
+            'deduplicate': 'Loại trùng',
+            'preprocess_nlp': 'NLP',
+        }
+
+        for stat in self.step_stats:
+            name = step_name_map.get(stat['step'], stat['step'])
+            if stat['step'] == 'load_data':
+                step_names.append(name)
+                step_values.append(stat['after'])
+            else:
+                step_names.append(name)
+                step_values.append(stat['after'])
+
+        # Vẽ waterfall chart
+        fig, ax = plt.subplots(figsize=(12, 6))
+        fig.suptitle('Pipeline Xử lý Dữ liệu — Số bản ghi qua từng bước',
+                     fontsize=14, fontweight='bold')
+
+        colors = []
+        for i, val in enumerate(step_values):
+            if i == 0:
+                colors.append('#45B7D1')  # Xanh dương - dữ liệu gốc
+            elif i == len(step_values) - 1:
+                colors.append('#4ECDC4')  # Xanh lá - kết quả cuối
+            else:
+                colors.append('#FFA07A')  # Cam nhạt - các bước trung gian
+
+        bars = ax.bar(step_names, step_values, color=colors, edgecolor='white', linewidth=1.5)
+        ax.set_ylabel('Số bản ghi', fontsize=12)
+
+        # Thêm số liệu và delta trên mỗi cột
+        for i, (bar, val) in enumerate(zip(bars, step_values)):
+            # Số bản ghi
+            ax.text(bar.get_x() + bar.get_width() / 2., bar.get_height() + max(step_values) * 0.01,
+                    f'{val:,}', ha='center', va='bottom', fontweight='bold', fontsize=11)
+
+            # Delta so với bước trước
+            if i > 0:
+                delta = step_values[i] - step_values[i - 1]
+                if delta != 0:
+                    ax.text(bar.get_x() + bar.get_width() / 2., bar.get_height() * 0.5,
+                            f'{delta:,}', ha='center', va='center',
+                            fontsize=9, color='#C0392B', fontweight='bold')
+
+        # Vẽ đường nối giữa các cột
+        for i in range(len(step_values) - 1):
+            ax.plot([i + 0.4, i + 0.6], [step_values[i], step_values[i + 1]],
+                    color='#999', linewidth=1.5, linestyle='--', alpha=0.6)
+
+        plt.tight_layout()
+        path = os.path.join(save_dir, 'pipeline_funnel.png')
+        fig.savefig(path, dpi=150, bbox_inches='tight')
+        plt.close(fig)
+        log_success(f"Biểu đồ Pipeline Funnel: {path}")
+
+    # ===================================================================
     # CHẠY PIPELINE
     # ===================================================================
     def run_all(self):
@@ -350,6 +439,9 @@ class DataPipeline:
 
             self.step_preprocess_nlp()
             self.save_output('output_processed_path')
+
+            # Vẽ biểu đồ pipeline funnel tổng thể
+            self._visualize_pipeline_funnel()
 
             # Tổng kết
             total_after = len(self.df)
@@ -388,10 +480,248 @@ class DataPipeline:
         steps[step_name]()
         return self
 
+    # ===================================================================
+    # CHẠY THEO THÀNH VIÊN
+    # ===================================================================
+    def run_tv1(self):
+        """
+        Chạy phần của Thành viên 1 (Ngô Hoàng Anh): Thu thập & EDA.
+        Đọc dữ liệu thô và vẽ biểu đồ thống kê cơ bản.
+        """
+        total_start = time.time()
+        log_info("🔹 CHẠY PHẦN THÀNH VIÊN 1: Data Collection & EDA")
+        log_info("=" * 60)
+
+        try:
+            self.step_load_data()
+
+            # Gọi visualize_collection nếu có
+            try:
+                from visualize_collection import run_collection_viz
+                run_collection_viz()
+            except ImportError:
+                log_warning("Không tìm thấy module visualize_collection.")
+            try:
+                from visualize_extra import run_extra_viz
+                run_extra_viz()
+            except ImportError:
+                log_warning("Không tìm thấy module visualize_extra.")
+
+            total_time = time.time() - total_start
+            log_success(f"Phần TV1 hoàn tất trong {total_time:.1f}s")
+        except Exception as e:
+            log_error(f"Phần TV1 thất bại: {e}")
+            raise
+
+        return self
+
+    def run_tv2(self):
+        """
+        Chạy phần của Thành viên 2 (Lê Quang Thi): Làm sạch, Chuẩn hóa, Loại trùng.
+        Bước 1-4: load → clean → normalize → deduplicate → lưu cleaned_news.csv
+        """
+        total_start = time.time()
+        log_info("🔹 CHẠY PHẦN THÀNH VIÊN 2: Cleaning & Normalization & Dedup")
+        log_info("=" * 60)
+
+        try:
+            self.step_load_data()
+            total_before = len(self.df)
+
+            self.step_clean()
+            self.step_normalize()
+            self.step_deduplicate()
+
+            self.save_output('output_cleaned_path')
+
+            # Vẽ biểu đồ pipeline funnel
+            self._visualize_pipeline_funnel()
+
+            total_after = len(self.df)
+            total_time = time.time() - total_start
+            log_summary(total_before, total_after, total_time)
+        except Exception as e:
+            log_error(f"Phần TV2 thất bại: {e}")
+            raise
+
+        return self
+
+    def run_tv3(self):
+        """
+        Chạy phần của Thành viên 3 (Tôn Hoàng Nhớ): Tiền xử lý NLP & TF-IDF.
+        Đọc dữ liệu đã làm sạch → NLP → lưu processed_news.csv + tfidf_features.pkl
+        """
+        total_start = time.time()
+        log_info("🔹 CHẠY PHẦN THÀNH VIÊN 3: NLP Preprocessing & TF-IDF")
+        log_info("=" * 60)
+
+        try:
+            # Đọc dữ liệu đã làm sạch (output của TV2)
+            cleaned_path = self._get_path(self.config.get('output_cleaned_path', 'data/cleaned_news.csv'))
+            encoding = self.config.get('encoding', 'utf-8-sig')
+
+            if os.path.exists(cleaned_path):
+                self.df = pd.read_csv(cleaned_path, encoding=encoding)
+                log_info(f"Đã đọc {len(self.df):,} bản ghi từ {cleaned_path}")
+                self.step_stats.append({
+                    'step': 'load_data',
+                    'before': len(self.df),
+                    'after': len(self.df),
+                    'time': 0
+                })
+            else:
+                log_error(f"Không tìm thấy file cleaned: {cleaned_path}. Hãy chạy TV2 trước!")
+                return self
+
+            self.step_preprocess_nlp()
+            self.save_output('output_processed_path')
+
+            total_time = time.time() - total_start
+            log_success(f"Phần TV3 hoàn tất trong {total_time:.1f}s")
+        except Exception as e:
+            log_error(f"Phần TV3 thất bại: {e}")
+            raise
+
+        return self
+
+    def run_tv4(self):
+        """
+        Chạy phần của Thành viên 4 (Nguyễn Văn Trường): Clustering & Gán nhãn.
+        Đọc dữ liệu đã xử lý NLP → phân cụm → gán nhãn.
+        """
+        total_start = time.time()
+        log_info("🔹 CHẠY PHẦN THÀNH VIÊN 4: Clustering & Labeling")
+        log_info("=" * 60)
+
+        try:
+            # Đọc dữ liệu đã xử lý NLP (output của TV3)
+            processed_path = self._get_path(self.config.get('output_processed_path', 'data/processed_news.csv'))
+            encoding = self.config.get('encoding', 'utf-8-sig')
+
+            if os.path.exists(processed_path):
+                self.df = pd.read_csv(processed_path, encoding=encoding)
+                log_info(f"Đã đọc {len(self.df):,} bản ghi từ {processed_path}")
+            else:
+                log_error(f"Không tìm thấy file processed: {processed_path}. Hãy chạy TV3 trước!")
+                return self
+
+            self.step_clustering()
+
+            total_time = time.time() - total_start
+            log_success(f"Phần TV4 hoàn tất trong {total_time:.1f}s")
+        except Exception as e:
+            log_error(f"Phần TV4 thất bại: {e}")
+            raise
+
+        return self
+
+    def run_tv5(self):
+        """
+        Chạy phần của Thành viên 5: Deep Learning & Tuning.
+        Huấn luyện mô hình phân loại.
+        """
+        total_start = time.time()
+        log_info("🔹 CHẠY PHẦN THÀNH VIÊN 5: Deep Learning & Model Training")
+        log_info("=" * 60)
+
+        try:
+            self.step_train_model()
+
+            total_time = time.time() - total_start
+            log_success(f"Phần TV5 hoàn tất trong {total_time:.1f}s")
+        except Exception as e:
+            log_error(f"Phần TV5 thất bại: {e}")
+            raise
+
+        return self
+
+    def run_tv6(self):
+        """
+        Chạy phần của Thành viên 6 (Khánh Huyền): Đánh giá & Xuất dữ liệu.
+        Xuất kết quả cuối cùng và báo cáo.
+        """
+        total_start = time.time()
+        log_info("🔹 CHẠY PHẦN THÀNH VIÊN 6: Export & Reporting")
+        log_info("=" * 60)
+
+        try:
+            self.step_export()
+
+            total_time = time.time() - total_start
+            log_success(f"Phần TV6 hoàn tất trong {total_time:.1f}s")
+        except Exception as e:
+            log_error(f"Phần TV6 thất bại: {e}")
+            raise
+
+        return self
+
 
 # ===================================================================
 # CHẠY TRỰC TIẾP
 # ===================================================================
+def print_usage():
+    """In hướng dẫn sử dụng."""
+    print("""
+╔══════════════════════════════════════════════════════════════╗
+║        PIPELINE XỬ LÝ DỮ LIỆU TIN TỨC CÔNG NGHỆ          ║
+╠══════════════════════════════════════════════════════════════╣
+║                                                              ║
+║  Cách dùng: python pipeline.py [option]                      ║
+║                                                              ║
+║  Các option:                                                 ║
+║    all   - Chạy toàn bộ pipeline (mặc định)                  ║
+║    tv1   - Thành viên 1: Thu thập dữ liệu & EDA             ║
+║    tv2   - Thành viên 2: Làm sạch, Chuẩn hóa, Loại trùng   ║
+║    tv3   - Thành viên 3: Tiền xử lý NLP & TF-IDF            ║
+║    tv4   - Thành viên 4: Phân cụm & Gán nhãn                ║
+║    tv5   - Thành viên 5: Deep Learning & Tuning              ║
+║    tv6   - Thành viên 6: Xuất dữ liệu & Báo cáo            ║
+║                                                              ║
+║  Ví dụ:                                                      ║
+║    python pipeline.py all    → Chạy tất cả                   ║
+║    python pipeline.py tv2    → Chỉ chạy phần TV2             ║
+║    python pipeline.py tv3    → Chỉ chạy phần TV3             ║
+║                                                              ║
+╚══════════════════════════════════════════════════════════════╝
+""")
+
+
 if __name__ == '__main__':
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description='Pipeline Xử lý Dữ liệu Tin tức Công nghệ'
+    )
+    parser.add_argument(
+        'mode',
+        nargs='?',
+        default='all',
+        choices=['all', 'tv1', 'tv2', 'tv3', 'tv4', 'tv5', 'tv6'],
+        help='Chế độ chạy: all (toàn bộ) hoặc tv1-tv6 (theo thành viên)'
+    )
+    parser.add_argument(
+        '--help-detail',
+        action='store_true',
+        help='Hiện hướng dẫn chi tiết'
+    )
+
+    args = parser.parse_args()
+
+    if args.help_detail:
+        print_usage()
+        sys.exit(0)
+
     pipeline = DataPipeline()
-    pipeline.run_all()
+
+    mode_map = {
+        'all': pipeline.run_all,
+        'tv1': pipeline.run_tv1,
+        'tv2': pipeline.run_tv2,
+        'tv3': pipeline.run_tv3,
+        'tv4': pipeline.run_tv4,
+        'tv5': pipeline.run_tv5,
+        'tv6': pipeline.run_tv6,
+    }
+
+    runner = mode_map[args.mode]
+    runner()

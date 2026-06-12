@@ -23,7 +23,7 @@ Thành viên 2 chịu trách nhiệm **4 nhiệm vụ chính**:
 |---|----------|-------------|--------|
 | 1 | Làm sạch dữ liệu rỗng/lỗi | `src/cleaning.py` | ⭐⭐ |
 | 2 | Chuẩn hóa Unicode & loại bỏ HTML/ký tự đặc biệt | `src/normalizer.py` | ⭐⭐⭐ |
-| 3 | Xử lý trùng lặp bằng MD5 Hash | `src/deduplicator.py` | ⭐⭐ |
+| 3 | Xử lý trùng lặp (kiểm tra bài viết lặp lại) | `src/deduplicator.py` | ⭐⭐ |
 | 4 | Lắp ráp Pipeline hoàn chỉnh | `src/pipeline.py` | ⭐⭐⭐⭐ |
 
 ---
@@ -72,6 +72,14 @@ def clean_data(df):
     """Hàm tổng hợp chạy toàn bộ quy trình làm sạch"""
 ```
 
+**Trực quan hóa kết quả Cleaning (3 biểu đồ):**
+
+| # | File | Mô tả |
+|---|------|-------|
+| 1 | `cleaning_01_error_types.png` | Bar chart chi tiết từng loại lỗi đã loại bỏ (dòng rỗng, quá ngắn, quá dài) |
+| 2 | `cleaning_02_pie_chart.png` | Pie chart tỷ lệ giữ lại vs loại bỏ |
+| 3 | `cleaning_03_comparison.png` | Bar chart so sánh số bản ghi trước/sau làm sạch |
+
 ---
 
 ## Giai đoạn 2: Chuẩn hóa Unicode & Loại bỏ HTML/Ký tự đặc biệt
@@ -94,7 +102,7 @@ def clean_data(df):
 
 3. **Loại bỏ ký tự đặc biệt:**
    - Xóa các emoji, biểu tượng đặc biệt
-   - Giữ lại các ký tự tiếng Việt (a-zA-Z, dấu), số, dấu câu cơ bản (`.`, `,`, `!`, `?`)
+   - Giữ lại các ký tự tiếng Việt (a-zA-Z, dấu), số, dấu câu cơ bản (`.`, `,`, `!`, `?`, `/`, `\`, `:`, `;`, `_`, `-`, `+`, `=`, `*`, `#`, `@`, `~`, `^`, `%`, `&`, `|`, `<`, `>`, `(`, `)`, `[`, `]`, `{}`)
    - Chuẩn hóa khoảng trắng: loại bỏ multiple spaces, trim đầu/cuối
    - Loại bỏ các URL nhúng trong nội dung bài viết
 
@@ -120,49 +128,72 @@ def normalize_whitespace(text):
 
 def normalize_text(text):
     """Pipeline chuẩn hóa đầy đủ cho một đoạn văn bản"""
+
+def normalize_dataframe(df):
+    """Chuẩn hóa toàn bộ DataFrame, trả về (df, stats)"""
+
+def visualize_normalize_report(stats):
+    """Vẽ 3 biểu đồ trực quan hóa kết quả chuẩn hóa"""
 ```
+
+**Trực quan hóa kết quả Normalizer (3 biểu đồ):**
+
+| # | File | Mô tả |
+|---|------|-------|
+| 1 | `normalize_01_noise_types.png` | Bar chart số lượng từng loại nhiễu đã loại bỏ (HTML tags, URL nhúng, Base64, Emoji) |
+| 2 | `normalize_02_chars_comparison.png` | Bar chart so sánh tổng ký tự trước/sau chuẩn hóa |
+| 3 | `normalize_03_noise_distribution.png` | Pie chart tỷ lệ phân bổ các loại nhiễu đã loại bỏ |
 
 ---
 
-## Giai đoạn 3: Xử lý Trùng lặp (Deduplication) bằng MD5 Hash
+## Giai đoạn 3: Xử lý Trùng lặp (Deduplication)
 
 #### [NEW] [deduplicator.py](file:///d:/Dev/Code/Nhom8_DataMining_NEWS/src/deduplicator.py)
 
-**Mục tiêu:** Phát hiện và loại bỏ các bài viết trùng lặp nội dung.
+**Mục tiêu:** Phát hiện và loại bỏ các bài viết bị lặp lại nhiều lần trong tập dữ liệu.
+
+**Phương pháp:** Sử dụng `pandas.DataFrame.duplicated()` để so sánh trực tiếp giá trị các cột, không sử dụng hash.
 
 **Logic xử lý chi tiết:**
 
-1. **Trùng lặp chính xác (Exact Duplicate):**
-   - Tính MD5 hash cho cột `main_content` (sau khi đã chuẩn hóa)
-   - Nhóm các bản ghi có cùng hash → giữ lại bản ghi đầu tiên (hoặc bản ghi mới nhất theo `published_time`)
+1. **Trùng lặp chính xác theo nội dung (Exact Duplicate):**
+   - Dùng `df.duplicated(subset=['main_content'], keep='first')` để tìm các bài viết có nội dung `main_content` giống hệt nhau
+   - Giữ lại bản ghi xuất hiện đầu tiên, loại bỏ các bản ghi lặp lại sau đó
    - Log danh sách các bản ghi bị loại bỏ
 
-2. **Trùng lặp gần đúng (Near Duplicate) - Tùy chọn:**
-   - Tính MD5 hash cho `title` để phát hiện các bài viết cùng tiêu đề nhưng khác nội dung nhẹ
-   - Các bài từ nhiều nguồn có thể đăng lại cùng nội dung với thay đổi nhỏ
+2. **Trùng lặp theo tiêu đề (Title Duplicate):**
+   - Dùng `df.duplicated(subset=['title'], keep='first')` để phát hiện các bài viết cùng tiêu đề
+   - Các bài từ nhiều nguồn có thể đăng lại cùng nội dung với tiêu đề giống nhau
 
 3. **Báo cáo trùng lặp:**
    - Thống kê số lượng bản ghi trùng theo từng nguồn (`domain`)
    - Tỷ lệ trùng lặp tổng thể
-   - xóa các trường dữ liệu không cần thiết
-**Công cụ sử dụng:** `hashlib`, `pandas`
+   - Xóa các trường dữ liệu không cần thiết
+
+**Công cụ sử dụng:** `pandas`
+
 ```python
 # Cấu trúc hàm chính
-def compute_md5(text):
-    """Tính MD5 hash cho một chuỗi văn bản"""
-
 def find_exact_duplicates(df, column='main_content'):
-    """Phát hiện các bản ghi trùng lặp chính xác dựa trên MD5 hash"""
+    """Phát hiện các bài viết có nội dung bị lặp lại bằng pandas.duplicated()"""
 
 def find_title_duplicates(df, column='title'):
-    """Phát hiện trùng lặp dựa trên tiêu đề"""
+    """Phát hiện các bài viết có tiêu đề bị lặp lại"""
 
-def remove_duplicates(df, keep='first'):
-    """Loại bỏ trùng lặp, giữ lại bản ghi theo chiến lược chọn"""
+def remove_duplicates(df, subset=['main_content'], keep='first'):
+    """Loại bỏ các bài viết trùng lặp, giữ lại bản ghi đầu tiên"""
 
 def generate_dedup_report(df_before, df_after):
     """Tạo báo cáo thống kê về quá trình loại bỏ trùng lặp"""
 ```
+
+**Trực quan hóa kết quả Deduplication (3 biểu đồ):**
+
+| # | File | Mô tả |
+|---|------|-------|
+| 1 | `dedup_01_domain_bar.png` | Bar chart số bản ghi theo domain trước/sau loại trùng |
+| 2 | `dedup_02_pie_chart.png` | Pie chart tỷ lệ trùng lặp |
+| 3 | `dedup_03_comparison.png` | Bar chart so sánh trước/sau dedup |
 
 ---
 
@@ -254,7 +285,43 @@ class DataPipeline:
     
     def run_step(self, step_name):
         """Chạy một bước cụ thể"""
+
+    def _visualize_pipeline_funnel(self):
+        """Vẽ biểu đồ Waterfall/Funnel tổng thể pipeline"""
+
+    # Chạy theo từng thành viên
+    def run_tv1(self): """TV1: Thu thập & EDA"""
+    def run_tv2(self): """TV2: Làm sạch, Chuẩn hóa, Loại trùng"""
+    def run_tv3(self): """TV3: NLP & TF-IDF (đọc cleaned_news.csv)"""
+    def run_tv4(self): """TV4: Phân cụm & Gán nhãn (đọc processed_news.csv)"""
+    def run_tv5(self): """TV5: Deep Learning & Tuning"""
+    def run_tv6(self): """TV6: Xuất dữ liệu & Báo cáo"""
 ```
+
+**Chạy pipeline theo từng thành viên (CLI):**
+
+```bash
+# Chạy toàn bộ pipeline
+python src/pipeline.py all
+
+# Chạy riêng từng thành viên
+python src/pipeline.py tv1    # TV1: Thu thập dữ liệu & EDA
+python src/pipeline.py tv2    # TV2: Làm sạch, Chuẩn hóa, Loại trùng
+python src/pipeline.py tv3    # TV3: Tiền xử lý NLP & TF-IDF
+python src/pipeline.py tv4    # TV4: Phân cụm & Gán nhãn
+python src/pipeline.py tv5    # TV5: Deep Learning & Tuning
+python src/pipeline.py tv6    # TV6: Xuất dữ liệu & Báo cáo
+```
+
+> [!NOTE]
+> - TV3 yêu cầu đã chạy TV2 trước (cần file `cleaned_news.csv`)
+> - TV4 yêu cầu đã chạy TV3 trước (cần file `processed_news.csv`)
+
+**Trực quan hóa Pipeline tổng thể (1 biểu đồ):**
+
+| # | File | Mô tả |
+|---|------|-------|
+| 1 | `pipeline_funnel.png` | Waterfall chart thể hiện số bản ghi giảm dần qua từng bước pipeline (Dữ liệu thô → Làm sạch → Chuẩn hóa → Loại trùng → NLP) |
 
 #### [NEW] [config.json](file:///d:/Dev/Code/Nhom8_DataMining_NEWS/config.json)
 
@@ -269,7 +336,6 @@ class DataPipeline:
         "max_words": 10000
     },
     "deduplication": {
-        "method": "md5",
         "column": "main_content",
         "keep": "first"
     },
@@ -294,7 +360,7 @@ class DataPipeline:
 src/
 ├── cleaning.py        # [MỚI] Module làm sạch dữ liệu (TV2)
 ├── normalizer.py      # [MỚI] Module chuẩn hóa Unicode/HTML (TV2)
-├── deduplicator.py    # [MỚI] Module xử lý trùng lặp MD5 (TV2)
+├── deduplicator.py    # [MỚI] Module xử lý trùng lặp (TV2)
 ├── pipeline.py        # [MỚI] Pipeline tổng hợp (TV2)
 ├── preprocessing.py   # Module NLP + TF-IDF (TV3)
 ├── modeling.py        # Module ML (TV4/5 - chờ code)
@@ -332,12 +398,11 @@ models/
 
 ```
 pandas
-hashlib  # (thư viện built-in, không cần cài)
 unicodedata  # (thư viện built-in, không cần cài)
 ```
 
 > [!IMPORTANT]
-> **`hashlib`, `unicodedata`, `re`, `html`** là các thư viện built-in của Python, không cần cài thêm. Chỉ cần cài `pandas` nếu chưa có.
+> **`unicodedata`, `re`, `html`** là các thư viện built-in của Python, không cần cài thêm. Chỉ cần cài `pandas` nếu chưa có.
 
 ---
 

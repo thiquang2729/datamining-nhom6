@@ -1,68 +1,53 @@
 """
-Module Xử lý Trùng lặp (Deduplication) bằng MD5 Hash.
-Phát hiện và loại bỏ các bài viết trùng lặp nội dung.
+Module Xử lý Trùng lặp (Deduplication).
+Phát hiện và loại bỏ các bài viết bị lặp lại nhiều lần trong tập dữ liệu.
+
+Phương pháp: Sử dụng pandas.DataFrame.duplicated() để so sánh trực tiếp
+giá trị các cột, kiểm tra xem bài viết có bị lặp lại hay không.
 
 Chức năng:
-    - Tính MD5 hash cho nội dung bài viết
-    - Phát hiện trùng lặp chính xác (Exact Duplicate)
-    - Phát hiện trùng lặp tiêu đề (Near Duplicate)
+    - Phát hiện bài viết trùng lặp chính xác theo nội dung
+    - Phát hiện bài viết trùng lặp theo tiêu đề
     - Tạo báo cáo thống kê trùng lặp
     - Trực quan hóa kết quả (dùng trong notebook)
 """
 
-import hashlib
 import pandas as pd
 from logger import log_info, log_success, log_warning
 
 
-def compute_md5(text):
-    """
-    Tính MD5 hash cho một chuỗi văn bản.
-
-    Args:
-        text (str): Văn bản cần tính hash.
-
-    Returns:
-        str: Chuỗi MD5 hash (32 ký tự hex).
-    """
-    if not isinstance(text, str) or not text.strip():
-        return None
-    return hashlib.md5(text.encode('utf-8')).hexdigest()
-
-
 def find_exact_duplicates(df, column='main_content'):
     """
-    Phát hiện các bản ghi trùng lặp chính xác dựa trên MD5 hash.
+    Phát hiện các bài viết có nội dung bị lặp lại bằng pandas.duplicated().
+
+    So sánh trực tiếp giá trị cột để tìm các bản ghi trùng nhau,
+    giữ lại bản ghi xuất hiện đầu tiên.
 
     Args:
         df (pd.DataFrame): DataFrame đầu vào.
-        column (str): Cột dùng để tính hash.
+        column (str): Cột dùng để kiểm tra trùng lặp.
 
     Returns:
-        tuple: (DataFrame đã tính hash, Series mask các bản ghi trùng lặp)
+        tuple: (DataFrame, Series mask các bản ghi trùng lặp)
     """
     if column not in df.columns:
         log_warning(f"Cột '{column}' không tồn tại trong DataFrame.")
         return df, pd.Series([False] * len(df))
 
-    log_info(f"Đang tính MD5 hash cho cột '{column}'...")
+    log_info(f"Đang kiểm tra trùng lặp nội dung trên cột '{column}'...")
 
-    # Tính MD5 hash cho từng bản ghi
-    hash_col = f'{column}_md5'
-    df[hash_col] = df[column].astype(str).apply(compute_md5)
-
-    # Tìm các bản ghi trùng lặp (giữ bản ghi đầu tiên)
-    duplicated_mask = df.duplicated(subset=[hash_col], keep='first')
+    # Tìm các bản ghi trùng lặp trực tiếp (giữ bản ghi đầu tiên)
+    duplicated_mask = df.duplicated(subset=[column], keep='first')
 
     dup_count = duplicated_mask.sum()
-    log_info(f"Trùng lặp nội dung (MD5): {dup_count:,} bản ghi trùng")
+    log_info(f"Trùng lặp nội dung: {dup_count:,} bản ghi bị lặp lại")
 
     return df, duplicated_mask
 
 
 def find_title_duplicates(df, column='title'):
     """
-    Phát hiện trùng lặp dựa trên tiêu đề.
+    Phát hiện các bài viết có tiêu đề bị lặp lại.
 
     Args:
         df (pd.DataFrame): DataFrame đầu vào.
@@ -75,22 +60,19 @@ def find_title_duplicates(df, column='title'):
         log_warning(f"Cột '{column}' không tồn tại trong DataFrame.")
         return df, pd.Series([False] * len(df))
 
-    log_info(f"Đang tính MD5 hash cho tiêu đề (cột '{column}')...")
+    log_info(f"Đang kiểm tra trùng lặp tiêu đề trên cột '{column}'...")
 
-    hash_col = f'{column}_md5'
-    df[hash_col] = df[column].astype(str).apply(compute_md5)
-
-    duplicated_mask = df.duplicated(subset=[hash_col], keep='first')
+    duplicated_mask = df.duplicated(subset=[column], keep='first')
 
     dup_count = duplicated_mask.sum()
-    log_info(f"Trùng lặp tiêu đề (MD5): {dup_count:,} bản ghi trùng")
+    log_info(f"Trùng lặp tiêu đề: {dup_count:,} bản ghi bị lặp lại")
 
     return df, duplicated_mask
 
 
 def remove_duplicates(df, column='main_content', keep='first'):
     """
-    Loại bỏ trùng lặp, giữ lại bản ghi đầu tiên.
+    Loại bỏ các bài viết trùng lặp, giữ lại bản ghi đầu tiên.
 
     Args:
         df (pd.DataFrame): DataFrame đầu vào.
@@ -102,16 +84,11 @@ def remove_duplicates(df, column='main_content', keep='first'):
     """
     before = len(df)
 
-    # Tính hash và tìm trùng lặp
+    # Tìm các bản ghi trùng lặp
     df, dup_mask = find_exact_duplicates(df, column)
 
     # Loại bỏ các bản ghi trùng
     df = df[~dup_mask]
-
-    # Xóa cột hash tạm
-    hash_col = f'{column}_md5'
-    if hash_col in df.columns:
-        df = df.drop(columns=[hash_col])
 
     # Reset index
     df = df.reset_index(drop=True)
