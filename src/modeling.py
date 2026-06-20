@@ -2,10 +2,15 @@ import os
 import joblib
 import pandas as pd
 import matplotlib.pyplot as plt
+import numpy as np
 
 from sklearn.cluster import KMeans, DBSCAN
-from sklearn.metrics import silhouette_score
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import ( 
+    silhouette_score, 
+    davies_bouldin_score 
+    ) 
+from sklearn.decomposition import PCA
 
 # =========================
 # LOAD DATA
@@ -13,12 +18,34 @@ from sklearn.model_selection import train_test_split
 
 print("Đang tải dữ liệu...")
 
-X = joblib.load("data/tfidf_features.pkl")
-vectorizer = joblib.load("models/vectorizer.pkl")
-df = pd.read_csv("data/processed_news.csv")
+X = joblib.load("../data/tfidf_features.pkl")
+vectorizer = joblib.load("../models/vectorizer.pkl")
+df = pd.read_csv("../data/processed_news.csv")
 
 print(f"Số bài báo: {len(df)}")
 print(f"Kích thước TF-IDF: {X.shape}")
+os.makedirs( "../notebooks", exist_ok=True ) 
+os.makedirs( "../data", exist_ok=True ) 
+os.makedirs( "../models", exist_ok=True )
+
+print("\nĐang chạy Elbow Method...")
+inertia = []
+K_range = range(2, 11)
+for k in K_range:
+    model = KMeans(
+        n_clusters=k, 
+        random_state=42, 
+        n_init=10 )
+    model.fit(X) 
+    inertia.append( model.inertia_ )
+plt.figure(figsize=(8,5)) 
+plt.plot( list(K_range), inertia, marker="o" )
+plt.title( "Elbow Method" )
+plt.xlabel("K") 
+plt.ylabel("Inertia") 
+plt.tight_layout() 
+plt.savefig( "../notebooks/elbow_method.png", dpi=300 )
+plt.close()
 
 # =========================
 # KMEANS
@@ -43,6 +70,9 @@ df["cluster"] = clusters
 # =========================
 
 score = silhouette_score(X, clusters)
+db_score = davies_bouldin_score( X.toarray(), clusters )
+print( "Davies-Bouldin Score =", round(db_score, 4) )
+
 
 print("\n====================")
 print("KẾT QUẢ KMEANS")
@@ -135,7 +165,7 @@ plt.ylabel("So luong bai bao")
 plt.tight_layout()
 
 plt.savefig(
-    "notebooks/dbscan_distribution.png",
+    "../notebooks/dbscan_distribution.png",
     dpi=300,
     bbox_inches="tight"
 )
@@ -154,6 +184,7 @@ cluster_mapping = {
 }
 
 df["label"] = df["cluster"].map(cluster_mapping)
+df.to_csv( "../data/labeled_news.csv", index=False )
 
 # =========================
 # TRAIN / VAL / TEST
@@ -177,11 +208,11 @@ val_df, test_df = train_test_split(
 # SAVE DATASET
 # =========================
 
-train_df.to_csv("data/train.csv", index=False)
-val_df.to_csv("data/val.csv", index=False)
-test_df.to_csv("data/test.csv", index=False)
+train_df.to_csv("../data/train.csv", index=False)
+val_df.to_csv("../data/val.csv", index=False)
+test_df.to_csv("../data/test.csv", index=False)
 
-df.to_csv("data/clustered_news.csv", index=False)
+df.to_csv("../data/clustered_news.csv", index=False)
 
 # =========================
 # SAVE MODEL
@@ -189,7 +220,7 @@ df.to_csv("data/clustered_news.csv", index=False)
 
 joblib.dump(
     kmeans,
-    "models/kmeans_model.pkl"
+    "../models/kmeans_model.pkl"
 )
 
 # =========================
@@ -211,7 +242,7 @@ plt.ylabel("So luong bai bao")
 plt.tight_layout()
 
 plt.savefig(
-    "notebooks/cluster_distribution.png",
+    "../notebooks/cluster_distribution.png",
     dpi=300
 )
 
@@ -241,10 +272,23 @@ plt.ylabel("So cum")
 plt.tight_layout()
 
 plt.savefig(
-    "notebooks/kmeans_vs_dbscan.png",
+    "../notebooks/kmeans_vs_dbscan.png",
     dpi=300
 )
 
+plt.close() 
+print( "\nĐang tạo PCA..." ) 
+pca = PCA( n_components=2 ) 
+X_pca = pca.fit_transform( X.toarray() )
+
+plt.figure( figsize=(10,8) )
+plt.scatter( X_pca[:,0], X_pca[:,1], c=clusters, s=5 )
+plt.title( "PCA Cluster Visualization" )
+plt.xlabel( "PCA 1" )
+plt.ylabel( "PCA 2" )
+plt.tight_layout()
+plt.savefig( "../notebooks/pca_cluster.png", dpi=300 )
+plt.close()
 plt.show()
 
 # =========================
@@ -275,7 +319,7 @@ plt.ylabel("Từ/cụm từ")
 plt.tight_layout()
 
 plt.savefig(
-    "notebooks/top20_tfidf.png",
+    "../notebooks/top20_tfidf.png",
     dpi=300,
     bbox_inches="tight"
 )
@@ -287,14 +331,17 @@ print("\n====================")
 print("ĐÃ LƯU FILE")
 print("====================")
 
-print("data/clustered_news.csv")
-print("data/train.csv")
-print("data/val.csv")
-print("data/test.csv")
+print("../data/clustered_news.csv")
+print("../data/train.csv")
+print("../data/val.csv")
+print("../data/test.csv")
 
 print("\nBiểu đồ:")
-print("notebooks/cluster_distribution.png")
-print("notebooks/kmeans_vs_dbscan.png")
+print("../notebooks/cluster_distribution.png")
+print("../notebooks/kmeans_vs_dbscan.png")
 
 print("\nModel:")
-print("models/kmeans_model.pkl")
+print("../models/kmeans_model.pkl")
+print( "../data/labeled_news.csv" ) 
+print( "../notebooks/elbow_method.png" ) 
+print( "../notebooks/pca_cluster.png" ) 
