@@ -5,12 +5,19 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.decomposition import TruncatedSVD
 import os
 import joblib
+from tqdm import tqdm
+
+tqdm.pandas()
 
 class TextPreprocessor:
     def __init__(self, stopword_path=None, max_features=None):
         self.stopword_path = stopword_path
         self.stopwords = self._load_stopwords()
-        self.vectorizer = TfidfVectorizer(max_features=max_features)
+        self.vectorizer = TfidfVectorizer(
+            max_features=max_features or 10000,
+            min_df=5,
+            max_df=0.7
+        )
         self.svd = None
 
     def _load_stopwords(self):
@@ -108,7 +115,7 @@ def preprocess_nlp(
     df_processed[processed_column] = (
         df_processed[text_column]
         .fillna("")
-        .apply(processor.process_text)
+        .progress_apply(processor.process_text)
     )
 
     X_features = processor.fit_transform_tfidf(df_processed[processed_column])
