@@ -9,6 +9,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import silhouette_score, davies_bouldin_score
 from sklearn.decomposition import PCA
 from wordcloud import WordCloud
+from sklearn.metrics import silhouette_samples
  
 # ============================================================
 # ĐƯỜNG DẪN
@@ -295,6 +296,79 @@ def plot_top_tfidf(X, vectorizer, output_path, top_n=20):
     plt.savefig(output_path, dpi=300, bbox_inches="tight")
     plt.close()
  
+# ==========================
+# HIỂN THỊ MA TRẬN TF-IDF
+# ==========================
+def save_tfidf_matrix(X, vectorizer, output_path, rows=30, cols=20):
+
+    print("\nĐang lưu ma trận TF-IDF...")
+
+    terms = vectorizer.get_feature_names_out()
+
+    tfidf_df = pd.DataFrame(
+        X[:rows, :cols].toarray(),
+        columns=terms[:cols]
+    )
+
+    tfidf_df.to_csv(output_path, index=False)
+
+    print("Đã lưu:", output_path)
+
+
+# ==========================
+# HEATMAP TF-IDF
+# ==========================
+def plot_tfidf_heatmap(
+    X,
+    vectorizer,
+    output_path,
+    rows=30,
+    cols=20
+):
+
+    print("\nĐang tạo Heatmap TF-IDF...")
+
+    terms = vectorizer.get_feature_names_out()
+
+    tfidf_sample = X[:rows, :cols].toarray()
+
+    plt.figure(figsize=(16, 8))
+
+    plt.imshow(
+        tfidf_sample,
+        aspect="auto",
+        interpolation="nearest"
+    )
+
+    plt.colorbar(label="TF-IDF Score")
+
+    plt.xticks(
+        range(cols),
+        terms[:cols],
+        rotation=90
+    )
+
+    plt.yticks(
+        range(rows),
+        [f"Doc {i+1}" for i in range(rows)]
+    )
+
+    plt.title("Heatmap TF-IDF Matrix")
+
+    plt.xlabel("Terms")
+    plt.ylabel("Documents")
+
+    plt.tight_layout()
+
+    plt.savefig(
+        output_path,
+        dpi=300,
+        bbox_inches="tight"
+    )
+
+    plt.close()
+
+    print("Đã lưu Heatmap:", output_path)
  
 def safe_to_csv(df, path, **kwargs):
     """Lưu CSV, kèm thông báo lỗi rõ ràng hơn nếu gặp PermissionError.
@@ -377,7 +451,178 @@ def cluster_and_label(df, X, vectorizer, config=None, cluster_mapping=None):
  
     df["label"] = df["cluster"].map(mapping)
     return df, kmeans, keywords_per_cluster
- 
+
+def plot_silhouette(X, clusters, output_path):
+
+    print("\nĐang tạo Silhouette Plot...")
+
+    sample_values = silhouette_samples(X, clusters)
+
+    plt.figure(figsize=(10,8))
+
+    y_lower = 10
+
+    n_clusters = len(np.unique(clusters))
+
+    for i in range(n_clusters):
+
+        values = sample_values[clusters == i]
+
+        values.sort()
+
+        size = len(values)
+
+        y_upper = y_lower + size
+
+        plt.fill_betweenx(
+            np.arange(y_lower, y_upper),
+            0,
+            values
+        )
+
+        plt.text(
+            -0.05,
+            y_lower + size/2,
+            str(i)
+        )
+
+        y_lower = y_upper + 10
+
+    avg_score = np.mean(sample_values)
+
+    plt.axvline(
+        x=avg_score,
+        linestyle="--"
+    )
+
+    plt.title("Silhouette Analysis")
+
+    plt.xlabel("Silhouette Score")
+
+    plt.ylabel("Cluster")
+
+    plt.tight_layout()
+
+    plt.savefig(
+        output_path,
+        dpi=300
+    )
+
+    plt.close()
+
+    print("Đã lưu Silhouette Plot")
+
+def plot_cluster_distance(
+    X,
+    kmeans,
+    clusters,
+    output_path
+):
+
+    print("\nĐang tạo Distance Plot...")
+
+    distances = kmeans.transform(X)
+
+    min_dist = distances.min(axis=1)
+
+    df_dist = pd.DataFrame({
+        "cluster": clusters,
+        "distance": min_dist
+    })
+
+    avg = (
+        df_dist
+        .groupby("cluster")
+        ["distance"]
+        .mean()
+    )
+
+    plt.figure(figsize=(8,6))
+
+    plt.bar(
+        avg.index.astype(str),
+        avg.values
+    )
+
+    plt.title(
+        "Average Distance To Centroid"
+    )
+
+    plt.xlabel("Cluster")
+
+    plt.ylabel("Distance")
+
+    plt.tight_layout()
+
+    plt.savefig(
+        output_path,
+        dpi=300
+    )
+
+    plt.close()
+
+    print("Đã lưu")
+
+def plot_cluster_centers_heatmap(
+    kmeans,
+    vectorizer,
+    output_path,
+    top_n=20
+):
+
+    print("\nĐang tạo Cluster Center Heatmap...")
+
+    centers = kmeans.cluster_centers_
+
+    terms = vectorizer.get_feature_names_out()
+
+    top_idx = np.argsort(
+        centers.mean(axis=0)
+    )[-top_n:]
+
+    data = centers[:, top_idx]
+
+    plt.figure(figsize=(14,8))
+
+    plt.imshow(
+        data,
+        aspect="auto"
+    )
+
+    plt.colorbar()
+
+    plt.xticks(
+        range(top_n),
+        terms[top_idx],
+        rotation=90
+    )
+
+    plt.yticks(
+        range(
+            centers.shape[0]
+        ),
+        [
+            f"Cluster {i}"
+            for i in range(
+                centers.shape[0]
+            )
+        ]
+    )
+
+    plt.title(
+        "KMeans Cluster Centers Heatmap"
+    )
+
+    plt.tight_layout()
+
+    plt.savefig(
+        output_path,
+        dpi=300
+    )
+
+    plt.close()
+
+    print("Đã lưu Heatmap")
  
 # ============================================================
 # CHẠY ĐỘC LẬP: python src/modeling.py
@@ -459,6 +704,51 @@ if __name__ == "__main__":
     )
     plot_pca(X, clusters, os.path.join(NOTEBOOKS_DIR, "pca_cluster.png"))
     plot_top_tfidf(X, vectorizer, os.path.join(NOTEBOOKS_DIR, "top20_tfidf.png"))
+    # Lưu ma trận TF-IDF
+    save_tfidf_matrix(
+        X,
+        vectorizer,
+        os.path.join(DATA_DIR, "tfidf_matrix.csv"),
+        rows=30,
+        cols=20
+    )
+
+    # Vẽ Heatmap TF-IDF
+    plot_tfidf_heatmap(
+        X,
+        vectorizer,
+        os.path.join(NOTEBOOKS_DIR, "tfidf_heatmap.png"),
+        rows=50,
+        cols=30
+    )
+
+    plot_silhouette(
+        X,
+        clusters,
+        os.path.join(
+            NOTEBOOKS_DIR,
+            "silhouette_plot.png"
+        )
+    )
+
+    plot_cluster_distance(
+        X,
+        kmeans,
+        clusters,
+        os.path.join(
+            NOTEBOOKS_DIR,
+            "cluster_distance.png"
+        )
+    )
+
+    plot_cluster_centers_heatmap(
+        kmeans,
+        vectorizer,
+        os.path.join(
+            NOTEBOOKS_DIR,
+            "kmeans_center_heatmap.png"
+        )
+    )
  
     print("\n====================")
     print("ĐÃ LƯU FILE")
