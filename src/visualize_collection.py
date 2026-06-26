@@ -41,7 +41,13 @@ PURPLE = "#534AB7"
 AMBER  = "#BA7517"
 DKGRN  = "#3B6D11"
 GRAY   = "#888780"
-PALETTE = [BLUE, GREEN, CORAL, PURPLE, AMBER, DKGRN]
+PALETTE = [
+    "#1F77B4",   # Phần cứng
+    "#FF7F0E",   # AI
+    "#2CA02C",   # An ninh mạng
+    "#D62728",   # Mobile
+    "#9467BD",   # Software
+]
  
 plt.rcParams.update({
     "font.family": "DejaVu Sans",
@@ -102,12 +108,11 @@ def run_collection_viz(news_csv=NEWS_CSV, clustered_csv=CLUSTERED_CSV, out_dir=O
  
     cluster_dist = df_cl["label"].value_counts()
     label_map = {
-        "Apple_iPhone":           "Apple / iPhone",
-        "General_Tech":           "General Tech",
-        "AI_and_Digital_Economy": "AI & Digital Economy",
-        "Digital_Transformation": "Digital Transformation",
-        "Samsung_Galaxy":         "Samsung Galaxy",
-        "Space_Technology":       "Space Technology",
+        "Phan_cung": "Phần cứng",
+        "Tri_tue_nhan_tao": "AI",
+        "An_ninh_mang": "An ninh mạng",
+        "Mobile": "Mobile",
+        "Software": "Software",
     }
     cl_labels = [label_map.get(l, l) for l in cluster_dist.index]
     cl_values = cluster_dist.values.tolist()
@@ -242,7 +247,7 @@ def _fig4_timeline(timeline, out_dir):
 def _fig5_cluster_donut(labels, values, out_dir):
     """Hình 5 – Donut phân bổ nhãn K-Means."""
     fig, ax = plt.subplots(figsize=(7, 5.5))
-    colors = PALETTE[:len(values)]
+    colors = PALETTE[:5]
     wedges, _, autotexts = ax.pie(
         values, colors=colors, autopct="%1.1f%%",
         startangle=90, pctdistance=0.80,
@@ -327,7 +332,7 @@ def _fig8_dashboard(dom_labels, dom_values, dom_colors,
  
     # 8c: Cluster donut
     ax3 = fig.add_subplot(gs[0, 2])
-    colors3 = PALETTE[:len(cl_values)]
+    colors3 = PALETTE[:5]
     ax3.pie(cl_values, colors=colors3, startangle=90,
             autopct="%1.0f%%", pctdistance=0.80,
             wedgeprops=dict(width=0.48, edgecolor="white", linewidth=2))

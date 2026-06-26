@@ -8,7 +8,7 @@ from sklearn.cluster import KMeans, DBSCAN
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import silhouette_score, davies_bouldin_score
 from sklearn.decomposition import PCA
- 
+from wordcloud import WordCloud
  
 # ============================================================
 # ĐƯỜNG DẪN
@@ -26,48 +26,31 @@ DEFAULT_CONFIG = {
     "tfidf_matrix_path": os.path.join(DATA_DIR, "tfidf_features.pkl"),
     "vectorizer_path": os.path.join(MODELS_DIR, "vectorizer.pkl"),
     "processed_data_path": os.path.join(DATA_DIR, "processed_news.csv"),
-    "n_clusters": 6,
+
+    # Slide yêu cầu 5 cụm
+    "n_clusters": 5,
+
     "k_search_range": range(2, 11),
+
     "dbscan_eps": 0.7,
     "dbscan_min_samples": 5,
     "dbscan_metric": "cosine",
-    # None = chạy DBSCAN trên TOÀN BỘ dữ liệu (không lấy mẫu).
-    # Đặt một số nguyên (vd 3000) nếu máy chạy quá lâu / hết RAM và muốn
-    # quay lại lấy mẫu để chạy thử nhanh.
+
     "dbscan_sample_size": None,
+
     "random_state": 42,
 }
- 
-# ============================================================
-# NHÃN GÁN CHO TỪNG CỤM
-#
-# !!! QUAN TRỌNG: mapping này được gán dựa trên việc đọc TOP KEYWORDS
-# in ra ở lần chạy gần nhất. Nếu chạy lại trên dữ liệu mới, số bài thay
-# đổi, hoặc đổi K -> nội dung từng cụm có thể thay đổi thứ tự/ý nghĩa.
-# => Luôn đối chiếu lại với file notebooks/cluster_keywords.txt (được
-#    lưu tự động mỗi lần chạy) trước khi tin tưởng mapping bên dưới.
-#
-# Ghi chú thêm: các nhãn hiện tại (theo hãng/chủ đề: Apple_iPhone,
-# Samsung_Galaxy, Space_Technology...) CHƯA khớp với khung 5 thể loại
-# đã thống nhất ban đầu của nhóm (Phần cứng, Phần mềm, AI, Thiết bị di
-# động, An ninh mạng - xem "Nhóm 6 DataMining.md"). Cần họp nhóm để
-# quyết định: (a) gộp/đổi tên cụm cho khớp 5 thể loại gốc, hoặc
-# (b) cập nhật lại phần Business Understanding trong báo cáo cho khớp
-# với nhãn thực tế tìm được từ dữ liệu.
-# ============================================================
-# ĐÃ ĐỐI CHIẾU với data/cluster_keywords.txt từ lần chạy thực tế trên dữ
-# liệu của nhóm (xác nhận bằng tay, đọc từng cụm) - mapping bên dưới khớp
-# đúng nội dung từng cụm tại thời điểm này. Nếu chạy lại modeling.py sau
-# khi dữ liệu đầu vào (tfidf_features.pkl) thay đổi, PHẢI mở lại
-# data/cluster_keywords.txt và kiểm tra lại, vì chỉ số cụm KMeans gán ra
-# không cố định theo ý nghĩa - cùng một chủ đề có thể rơi vào số cụm khác.
+
+
+# ==========================
+# GÁN NHÃN CHO CỤM
+# ==========================
 CLUSTER_MAPPING = {
-    0: "Digital_Transformation",
-    1: "Apple_iPhone",
-    2: "General_Tech",
-    3: "Space_Technology",
-    4: "Samsung_Galaxy",
-    5: "AI_and_Digital_Economy",
+    0: "Phan_cung",
+    1: "Tri_tue_nhan_tao",
+    2: "An_ninh_mang",
+    3: "Mobile",
+    4: "Software",
 }
  
  
@@ -161,6 +144,44 @@ def save_keywords_report(keywords_per_cluster, cluster_mapping, output_path):
         f.write("\n".join(lines))
  
     print(f"Đã lưu báo cáo từ khóa: {output_path}")
+
+def generate_wordclouds(keywords_per_cluster, output_dir):
+
+    print("\nĐang tạo WordCloud...")
+
+    for cluster_id, words in keywords_per_cluster.items():
+
+        text = " ".join(words)
+
+        wc = WordCloud(
+            width=1200,
+            height=700,
+            background_color="white"
+        ).generate(text)
+
+        plt.figure(figsize=(10, 6))
+
+        plt.imshow(wc)
+
+        plt.axis("off")
+
+        plt.title(
+            f"Cluster {cluster_id} - {CLUSTER_MAPPING.get(cluster_id)}"
+        )
+
+        plt.tight_layout()
+
+        plt.savefig(
+            os.path.join(
+                output_dir,
+                f"wordcloud_cluster_{cluster_id}.png"
+            ),
+            dpi=300
+        )
+
+        plt.close()
+
+    print("Đã lưu WordCloud")
  
  
 def run_dbscan(X, eps, min_samples, metric, sample_size=None, random_state=42):
@@ -386,6 +407,11 @@ if __name__ == "__main__":
         keywords_per_cluster,
         CLUSTER_MAPPING,
         os.path.join(DATA_DIR, "cluster_keywords.txt"),
+    )
+
+    generate_wordclouds(
+        keywords_per_cluster,
+        NOTEBOOKS_DIR
     )
  
     print("\n====================")
