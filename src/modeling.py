@@ -3,7 +3,8 @@ import joblib
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
- 
+import matplotlib.patches as patches
+
 from sklearn.cluster import KMeans, DBSCAN
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import silhouette_score, davies_bouldin_score
@@ -623,7 +624,93 @@ def plot_cluster_centers_heatmap(
     plt.close()
 
     print("Đã lưu Heatmap")
- 
+
+
+# ==========================
+# DATASET SPLITTING PIE CHART
+# ==========================
+
+def plot_dataset_split_pie(output_path):
+
+    print("\nĐang tạo Pie Chart Dataset Split...")
+
+    labels = [
+        "Train Set\n(70%)",
+        "Validation Set\n(15%)",
+        "Test Set\n(15%)"
+    ]
+
+    sizes = [70, 15, 15]
+
+    colors = [
+        "#4CAF50",   # xanh lá
+        "#FFA726",   # cam
+        "#EF5350"    # đỏ
+    ]
+
+    explode = (
+        0.03,
+        0.08,
+        0.08
+    )
+
+    plt.figure(
+        figsize=(10, 8)
+    )
+
+    plt.pie(
+        sizes,
+        labels=labels,
+        autopct="%1.0f%%",
+        startangle=90,
+        colors=colors,
+        explode=explode,
+        shadow=True,
+        textprops={
+            "fontsize": 14,
+            "weight": "bold"
+        }
+    )
+
+    plt.title(
+        "Dataset Splitting (70% - 15% - 15%)",
+        fontsize=22,
+        weight="bold",
+        pad=20
+    )
+
+    plt.legend(
+        [
+            "Train - Huấn luyện",
+            "Validation - Tinh chỉnh",
+            "Test - Đánh giá"
+        ],
+        loc="lower center",
+        bbox_to_anchor=(0.5, -0.15),
+        ncol=3
+    )
+
+    plt.figtext(
+        0.5,
+        -0.05,
+        "Stratified Split giúp giữ cân bằng tỷ lệ các lớp",
+        ha="center",
+        fontsize=12
+    )
+
+    plt.tight_layout()
+
+    plt.savefig(
+        output_path,
+        dpi=300,
+        bbox_inches="tight"
+    )
+
+    plt.close()
+
+    print("Đã lưu:", output_path)
+
+
 # ============================================================
 # CHẠY ĐỘC LẬP: python src/modeling.py
 # Giữ nguyên toàn bộ output/file như bản gốc, chỉ tổ chức lại thành hàm.
@@ -749,6 +836,13 @@ if __name__ == "__main__":
             "kmeans_center_heatmap.png"
         )
     )
+
+    plot_dataset_split_pie(
+        os.path.join(
+            NOTEBOOKS_DIR,
+            "dataset_split_pie.png"
+        )
+    )
  
     print("\n====================")
     print("ĐÃ LƯU FILE")
@@ -761,7 +855,7 @@ if __name__ == "__main__":
     print("\nBiểu đồ:")
     print(os.path.join(NOTEBOOKS_DIR, "cluster_distribution.png"))
     print(os.path.join(NOTEBOOKS_DIR, "kmeans_vs_dbscan.png"))
- 
+    print(os.path.join(NOTEBOOKS_DIR, "dataset_splitting.png"))
     print("\nModel:")
     print(os.path.join(MODELS_DIR, "kmeans_model.pkl"))
     print(os.path.join(DATA_DIR, "labeled_news.csv"))
