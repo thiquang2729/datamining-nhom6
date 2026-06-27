@@ -169,19 +169,22 @@ def clean_data(df, config=None):
     return df, stats
 
 
-def visualize_cleaning_report(stats, save_dir=None):
+def visualize_cleaning_report(stats, df_cleaned=None, save_dir=None):
     """
-    Vẽ 3 biểu đồ riêng biệt trực quan hóa kết quả làm sạch dữ liệu.
+    Vẽ biểu đồ trực quan hóa kết quả làm sạch dữ liệu.
     Lưu mỗi biểu đồ thành 1 file ảnh PNG riêng trong thư mục notebooks/.
 
     Args:
         stats (dict): Thống kê từ clean_data().
+        df_cleaned (pd.DataFrame, optional): DataFrame đã làm sạch (dùng vẽ scatter plot).
         save_dir (str): Thư mục lưu ảnh. Mặc định: notebooks/
     """
     import os
+    import numpy as np
     import matplotlib
     matplotlib.use('Agg')
     import matplotlib.pyplot as plt
+    import matplotlib.patches as mpatches
     import seaborn as sns
 
     plt.rcParams['font.family'] = 'Segoe UI'
@@ -276,4 +279,84 @@ def visualize_cleaning_report(stats, save_dir=None):
     fig3.savefig(path3, dpi=150, bbox_inches='tight')
     plt.close(fig3)
     log_success(f"Biểu đồ 3 (So sánh): {path3}")
+
+    # ===================================================================
+    # BIỂU ĐỒ 4: Scatter Plot – Word Count sau khi Cleaning
+    # ===================================================================
+    if df_cleaned is not None and 'main_content' in df_cleaned.columns:
+        df_plot = df_cleaned.copy()
+        df_plot['word_count'] = df_plot['main_content'].astype(str).str.split().str.len().fillna(0).astype(int)
+
+        # Tính IQR để phát hiện outlier
+        Q1 = df_plot['word_count'].quantile(0.25)
+        Q3 = df_plot['word_count'].quantile(0.75)
+        IQR = Q3 - Q1
+        lower = max(0, Q1 - 1.5 * IQR)
+        upper = Q3 + 1.5 * IQR
+
+        is_outlier = (df_plot['word_count'] < lower) | (df_plot['word_count'] > upper)
+        is_normal = ~is_outlier
+        n_outliers = is_outlier.sum()
+        n_normal = is_normal.sum()
+
+        x_all = np.arange(len(df_plot))
+
+        fig4, ax4 = plt.subplots(figsize=(13, 5.5))
+        fig4.patch.set_facecolor('white')
+        ax4.set_facecolor('white')
+
+        # Vùng normal (shading nhạt)
+        ax4.axhspan(lower, upper, alpha=0.12, color='#4CAF50', zorder=0)
+
+        # Đường ngưỡng
+        ax4.axhline(lower, color='#E74C3C', linewidth=1.2, linestyle='--', alpha=0.7)
+        ax4.axhline(upper, color='#E74C3C', linewidth=1.2, linestyle='--', alpha=0.7)
+
+        # Điểm normal (xanh lá, nhỏ)
+        ax4.scatter(x_all[is_normal.values], df_plot.loc[is_normal, 'word_count'].values,
+                    c='#4CAF50', s=6, alpha=0.5, zorder=2, linewidths=0)
+
+        # Điểm outlier (tam giác đỏ, to hơn)
+        ax4.scatter(x_all[is_outlier.values], df_plot.loc[is_outlier, 'word_count'].values,
+                    c='#E74C3C', s=18, alpha=0.75, marker='^', zorder=3, linewidths=0)
+
+        # Trục & nhãn
+        ax4.set_ylabel('Word Count (số từ)', fontsize=12, color='#333')
+        ax4.set_xlabel('Chỉ số bài viết', fontsize=11, color='#555')
+        ax4.set_xlim(-200, len(df_plot) + 200)
+        ax4.set_ylim(-50, df_plot['word_count'].max() * 1.08)
+        ax4.tick_params(labelsize=10)
+        ax4.set_title('Scatter Plot — Số từ từng bài viết (Sau Cleaning)',
+                       fontsize=13, pad=12, color='#222', fontweight='bold')
+
+        # Grid nhẹ
+        ax4.yaxis.grid(True, linestyle='--', alpha=0.3, color='#999')
+        ax4.set_axisbelow(True)
+
+        # Spines
+        ax4.spines['top'].set_visible(False)
+        ax4.spines['right'].set_visible(False)
+        ax4.spines['left'].set_color('#bbb')
+        ax4.spines['bottom'].set_color('#bbb')
+
+        # Legend
+        legend_handles = [
+            mpatches.Patch(color='#4CAF50', label=f'Normal ({n_normal:,})'),
+            plt.scatter([], [], c='#E74C3C', marker='^', s=40,
+                        label=f'Outliers ({n_outliers:,})'),
+            plt.Line2D([0], [0], color='#E74C3C', linestyle='--',
+                       linewidth=1.2, label=f'Lower: {int(lower)} từ'),
+            plt.Line2D([0], [0], color='#E74C3C', linestyle='--',
+                       linewidth=1.2, label=f'Upper: {int(upper)} từ'),
+            mpatches.Patch(color='#4CAF50', alpha=0.2, label='Normal Zone'),
+        ]
+        ax4.legend(handles=legend_handles, loc='upper right',
+                   fontsize=9, frameon=True, framealpha=0.9,
+                   edgecolor='#ddd', handlelength=1.4)
+
+        plt.tight_layout()
+        path4 = os.path.join(save_dir, 'cleaning_04_scatter_wordcount.png')
+        fig4.savefig(path4, dpi=150, bbox_inches='tight', facecolor='white')
+        plt.close(fig4)
+        log_success(f"Biểu đồ 4 (Scatter Plot Word Count): {path4}")
 

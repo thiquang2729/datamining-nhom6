@@ -72,13 +72,14 @@ def clean_data(df):
     """Hàm tổng hợp chạy toàn bộ quy trình làm sạch"""
 ```
 
-**Trực quan hóa kết quả Cleaning (3 biểu đồ):**
+**Trực quan hóa kết quả Cleaning (4 biểu đồ):**
 
 | # | File | Mô tả |
 |---|------|-------|
 | 1 | `cleaning_01_error_types.png` | Bar chart chi tiết từng loại lỗi đã loại bỏ (dòng rỗng, quá ngắn, quá dài) |
 | 2 | `cleaning_02_pie_chart.png` | Pie chart tỷ lệ giữ lại vs loại bỏ |
 | 3 | `cleaning_03_comparison.png` | Bar chart so sánh số bản ghi trước/sau làm sạch |
+| 4 | `cleaning_04_scatter_wordcount.png` | Scatter plot số từ (word count) từng bài viết sau cleaning, đánh dấu outlier bằng IQR |
 
 ---
 

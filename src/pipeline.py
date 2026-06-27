@@ -150,8 +150,8 @@ class DataPipeline:
         with StepTimer("Bước 2: Làm sạch dữ liệu", before) as timer:
             self.df, cleaning_stats = clean_data(self.df, cleaning_config)
             
-            # Vẽ và lưu 3 biểu đồ báo cáo làm sạch dữ liệu vào thư mục notebooks/
-            visualize_cleaning_report(cleaning_stats)
+            # Vẽ và lưu biểu đồ báo cáo làm sạch dữ liệu vào thư mục notebooks/
+            visualize_cleaning_report(cleaning_stats, df_cleaned=self.df)
             
             after = len(self.df)
             log_step_end("Bước 2: Làm sạch", before, after, timer.elapsed)
@@ -687,41 +687,73 @@ def print_usage():
 
 
 if __name__ == '__main__':
-    import argparse
+    # Nếu có argument dòng lệnh → chạy trực tiếp
+    if len(sys.argv) > 1:
+        import argparse
+        parser = argparse.ArgumentParser(
+            description='Pipeline Xử lý Dữ liệu Tin tức Công nghệ'
+        )
+        parser.add_argument(
+            'mode',
+            choices=['all', 'tv1', 'tv2', 'tv3', 'tv4', 'tv5', 'tv6'],
+            help='Chế độ chạy: all (toàn bộ) hoặc tv1-tv6 (theo thành viên)'
+        )
+        args = parser.parse_args()
 
-    parser = argparse.ArgumentParser(
-        description='Pipeline Xử lý Dữ liệu Tin tức Công nghệ'
-    )
-    parser.add_argument(
-        'mode',
-        nargs='?',
-        default='all',
-        choices=['all', 'tv1', 'tv2', 'tv3', 'tv4', 'tv5', 'tv6'],
-        help='Chế độ chạy: all (toàn bộ) hoặc tv1-tv6 (theo thành viên)'
-    )
-    parser.add_argument(
-        '--help-detail',
-        action='store_true',
-        help='Hiện hướng dẫn chi tiết'
-    )
+        pipeline = DataPipeline()
+        mode_map = {
+            'all': pipeline.run_all,
+            'tv1': pipeline.run_tv1,
+            'tv2': pipeline.run_tv2,
+            'tv3': pipeline.run_tv3,
+            'tv4': pipeline.run_tv4,
+            'tv5': pipeline.run_tv5,
+            'tv6': pipeline.run_tv6,
+        }
+        mode_map[args.mode]()
 
-    args = parser.parse_args()
+    else:
+        # Không có argument → hiện menu tương tác
+        print("""
+╔══════════════════════════════════════════════════════════════╗
+║        PIPELINE XỬ LÝ DỮ LIỆU TIN TỨC CÔNG NGHỆ          ║
+║                     Nhóm 6 - Data Mining                     ║
+╠══════════════════════════════════════════════════════════════╣
+║                                                              ║
+║  [0]  Chạy toàn bộ pipeline (all)                            ║
+║                                                              ║
+║  [1]  TV1 - Ngô Hoàng Anh:    Thu thập dữ liệu & EDA       ║
+║  [2]  TV2 - Lê Quang Thi:     Làm sạch, Chuẩn hóa, Dedup   ║
+║  [3]  TV3 - Tôn Hoàng Nhớ:    Tiền xử lý NLP & TF-IDF      ║
+║  [4]  TV4 - Nguyễn Văn Trường: Phân cụm & Gán nhãn          ║
+║  [5]  TV5 - (Thành viên 5):   Deep Learning & Tuning         ║
+║  [6]  TV6 - Khánh Huyền:      Xuất dữ liệu & Báo cáo       ║
+║                                                              ║
+║  [q]  Thoát                                                  ║
+║                                                              ║
+╚══════════════════════════════════════════════════════════════╝
+""")
 
-    if args.help_detail:
-        print_usage()
-        sys.exit(0)
+        choice = input("👉 Chọn số (0-6) hoặc 'q' để thoát: ").strip()
 
-    pipeline = DataPipeline()
+        if choice == 'q':
+            print("Đã thoát.")
+            sys.exit(0)
 
-    mode_map = {
-        'all': pipeline.run_all,
-        'tv1': pipeline.run_tv1,
-        'tv2': pipeline.run_tv2,
-        'tv3': pipeline.run_tv3,
-        'tv4': pipeline.run_tv4,
-        'tv5': pipeline.run_tv5,
-        'tv6': pipeline.run_tv6,
-    }
+        pipeline = DataPipeline()
+        choice_map = {
+            '0': pipeline.run_all,
+            '1': pipeline.run_tv1,
+            '2': pipeline.run_tv2,
+            '3': pipeline.run_tv3,
+            '4': pipeline.run_tv4,
+            '5': pipeline.run_tv5,
+            '6': pipeline.run_tv6,
+        }
 
-    runner = mode_map[args.mode]
-    runner()
+        if choice in choice_map:
+            choice_map[choice]()
+        else:
+            print(f"❌ Lựa chọn '{choice}' không hợp lệ. Vui lòng chọn 0-6 hoặc 'q'.")
+            sys.exit(1)
+
