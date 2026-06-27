@@ -182,7 +182,7 @@ def clean_base64_columns(df, columns=None):
     for col in columns:
         if col in df.columns:
             # Thay thế chuỗi base64 bằng chuỗi rỗng
-            df[col] = df[col].astype(str).apply(
+            df[col] = df[col].fillna('').astype(str).apply(
                 lambda x: '' if x.startswith('data:image') else x
             )
             log_info(f"Đã xóa dữ liệu base64 trong cột '{col}'")
