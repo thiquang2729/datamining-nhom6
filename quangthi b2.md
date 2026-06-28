@@ -240,17 +240,20 @@ def generate_dedup_report(df_before, df_after):
 4. **Tích hợp bước tiền xử lý NLP của Thành viên 3:**
    - Nhận dữ liệu đã qua làm sạch, chuẩn hóa và loại trùng từ các bước trước.
    - Đọc cột nội dung chính `main_content`.
-   - Tạo cột `processed_content` sau khi chuyển chữ thường, loại bỏ ký tự không cần thiết và lọc stopwords tiếng Việt.
+   - Tạo cột `processed_content` sau khi chuyển chữ thường, tách từ tiếng Việt bằng `underthesea` và lọc stopwords tiếng Việt đã mở rộng.
    - Trích xuất đặc trưng văn bản bằng TF-IDF.
    - Lưu dữ liệu đã tiền xử lý vào `data/processed_news.csv`.
    - Lưu ma trận đặc trưng vào `data/tfidf_features.pkl`.
    - Lưu bộ vectorizer đã fit vào `models/vectorizer.pkl` để tái sử dụng khi phân cụm, huấn luyện hoặc dự đoán dữ liệu mới.
+   - Sau cập nhật stopwords mới nhất, số từ trung bình giảm từ khoảng 703 từ/bài xuống khoảng 415 từ/bài, loại khoảng 289 từ/bài.
+   - Top TF-IDF hiện tập trung hơn vào từ khóa nội dung như `ai`, `iphone`, `công_nghệ`, `apple`, `việt_nam`, `phát_triển`, `dữ_liệu`, `ứng_dụng`.
 
 **Tóm tắt cho slide bước NLP:**
 
 ```
 cleaned_news.csv
     → lowercase + lọc ký tự nhiễu
+    → tách từ tiếng Việt bằng underthesea
     → loại stopwords tiếng Việt
     → tạo cột processed_content
     → TF-IDF vectorization
@@ -370,12 +373,12 @@ src/
 config.json            # [MỚI] File cấu hình pipeline
 data/
 ├── news_data.csv      # Dữ liệu thô (~19.120 bản ghi)
-├── cleaned_news.csv   # [SẼ TẠO] Dữ liệu sau khi làm sạch
-├── processed_news.csv # [SẼ TẠO] Dữ liệu có thêm cột processed_content
-└── tfidf_features.pkl # [SẼ TẠO] Ma trận đặc trưng TF-IDF
+├── cleaned_news.csv   # Dữ liệu sau khi làm sạch
+├── processed_news.csv # Dữ liệu có thêm cột processed_content
+└── tfidf_features.pkl # Ma trận đặc trưng TF-IDF
 
 models/
-└── vectorizer.pkl     # [SẼ TẠO] TF-IDF vectorizer đã fit
+└── vectorizer.pkl     # TF-IDF vectorizer đã fit
 ```
 
 ---

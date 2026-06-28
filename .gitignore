@@ -38,6 +38,15 @@ data/*
 !data/.gitkeep
 !data/vietnamese-stopwords.txt
 
+# Models (binary, tái tạo từ code)
+models/*.pkl
+models/*.joblib
+!models/.gitkeep
+
+# Notebook artifacts (PNG sinh từ .ipynb)
+notebooks/*.png
+!notebooks/.gitkeep
+
 # OS
 .DS_Store
 Thumbs.db

@@ -8,7 +8,8 @@ Pipeline gồm các bước:
     3. Chuẩn hóa văn bản (normalizer.py)
     4. Xử lý trùng lặp (deduplicator.py)
     5. Tiền xử lý NLP và trích xuất đặc trưng TF-IDF (preprocessing.py)
-    6-8. Placeholder cho các thành viên khác (chờ tích hợp)
+    6. Mã hóa nhãn và nguồn (Thành viên 3)
+    7-8. Placeholder cho các thành viên khác (chờ tích hợp)
 
 Output:
     - data/cleaned_news.csv: Dữ liệu đã làm sạch
@@ -22,6 +23,7 @@ import sys
 import json
 import time
 import pandas as pd
+import joblib
 
 # Thêm thư mục src vào path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -29,7 +31,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from cleaning import clean_data, visualize_cleaning_report
 from normalizer import normalize_dataframe, visualize_normalize_report
 from deduplicator import remove_duplicates, generate_dedup_report, visualize_dedup_report
-from preprocessing import preprocess_nlp
+from preprocessing import preprocess_nlp, visualize_preprocessing_report, encode_labels, encode_source
 from logger import (
     log_info, log_success, log_error, log_warning,
     log_step_end, log_summary, StepTimer
@@ -42,7 +44,6 @@ class DataPipeline:
     def __init__(self, config_path=None):
         """
         Khởi tạo pipeline với cấu hình.
-
         Args:
             config_path (str): Đường dẫn đến file config.json.
         """
@@ -54,7 +55,8 @@ class DataPipeline:
         self.config = self._load_config(config_path)
         self.df = None
         self.step_stats = []
-
+        self.le = None
+        self.ohe = None
         # Đường dẫn dựa trên thư mục gốc dự án
         self.project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -90,8 +92,13 @@ class DataPipeline:
                 "processed_column": "processed_content",
                 "tfidf_matrix_path": "data/tfidf_features.pkl",
                 "vectorizer_path": "models/vectorizer.pkl",
-                "n_components": None,
-                "max_features": None
+                "n_components": 300,
+                "max_features": 3000
+            },
+            "encoding_config": {
+                "category_column": "category",
+                "source_column": "source",
+                "label_encoding_method": "label"
             },
             "encoding": "utf-8-sig"
         }
@@ -195,7 +202,7 @@ class DataPipeline:
         return self
 
     # ===================================================================
-    # BƯỚC 4: XỬ LÝ TRÙNG LẶP (Thành viên 2)
+    # BƯỚC 4: XỬ LÙNG TRÙNG LẶP (Thành viên 2)
     # ===================================================================
     def step_deduplicate(self):
         """Bước 4: Loại bỏ bài viết trùng lặp (kiểm tra bài viết lặp lại)."""
@@ -271,6 +278,7 @@ class DataPipeline:
 
             after = len(self.df)
             log_success(f"Đã tạo ma trận TF-IDF: {X_features.shape}")
+            # visualize_preprocessing_report đã được gọi bên trong preprocess_nlp trước khi giảm chiều
             log_step_end("Bước 5: Tiền xử lý NLP", before, after, timer.elapsed)
             self.step_stats.append({
                 'step': 'preprocess_nlp',
@@ -283,26 +291,55 @@ class DataPipeline:
         return self
 
     # ===================================================================
-    # BƯỚC 6-8: PLACEHOLDER (Chờ code các thành viên khác)
+    # BƯỚC 6: MÃ HÓA NHÃN VÀ NGUỒN (Thành viên 3)
+    # ===================================================================
+    def step_encode_labels(self):
+        """Bước 6: Mã hóa cột category bằng Label Encoding."""
+        if self.df is None:
+            log_error("Chưa có dữ liệu!")
+            return self
+        encoding_config = self.config.get('encoding_config', {})
+        category_col = encoding_config.get('category_column', 'category')
+        method = encoding_config.get('label_encoding_method', 'label')
+        if category_col not in self.df.columns:
+            log_warning(f"Không tìm thấy cột '{category_col}' để mã hóa.")
+            return self
+        with StepTimer("Bước 6: Mã hóa nhãn (Label Encoding)", len(self.df)) as timer:
+            self.df, self.le = encode_labels(self.df, label_column=category_col, encoding_method=method)
+            log_step_end("Bước 6: Mã hóa nhãn", len(self.df), len(self.df), timer.elapsed)
+        return self
+
+    def step_encode_source(self):
+        """Bước 7: Mã hóa cột source bằng One-Hot Encoding."""
+        if self.df is None:
+            log_error("Chưa có dữ liệu!")
+            return self
+        encoding_config = self.config.get('encoding_config', {})
+        source_col = encoding_config.get('source_column', 'source')
+        if source_col not in self.df.columns:
+            log_warning(f"Không tìm thấy cột '{source_col}' để mã hóa.")
+            return self
+        with StepTimer("Bước 7: Mã hóa nguồn (One-Hot Encoding)", len(self.df)) as timer:
+            self.df, self.ohe = encode_source(self.df, source_column=source_col)
+            log_step_end("Bước 7: Mã hóa nguồn", len(self.df), len(self.df), timer.elapsed)
+        return self
+
+    # ===================================================================
+    # BƯỚC 8-9: PLACEHOLDER (Chờ code các thành viên khác)
     # ===================================================================
     def step_clustering(self):
-        """Bước 6: Phân cụm & Gán nhãn (Thành viên 4 - PLACEHOLDER)."""
-        log_warning("Bước 6: Phân cụm & Gán nhãn - PLACEHOLDER (chờ code Thành viên 4)")
-        # TODO: Tích hợp code modeling.py của Thành viên 4
-        # from modeling import cluster_and_label
-        # self.df = cluster_and_label(self.df)
+        """Bước 8: Phân cụm & Gán nhãn (Thành viên 4 - PLACEHOLDER)."""
+        log_warning("Bước 8: Phân cụm & Gán nhãn - PLACEHOLDER (chờ code Thành viên 4)")
         return self
 
     def step_train_model(self):
-        """Bước 7: Huấn luyện mô hình (Thành viên 5 - PLACEHOLDER)."""
-        log_warning("Bước 7: Huấn luyện mô hình - PLACEHOLDER (chờ code Thành viên 5)")
-        # TODO: Tích hợp code của Thành viên 5
+        """Bước 9: Huấn luyện mô hình (Thành viên 5 - PLACEHOLDER)."""
+        log_warning("Bước 9: Huấn luyện mô hình - PLACEHOLDER (chờ code Thành viên 5)")
         return self
 
     def step_export(self):
-        """Bước 8: Xuất dữ liệu & Báo cáo (Thành viên 6 - PLACEHOLDER)."""
-        log_warning("Bước 8: Xuất dữ liệu - PLACEHOLDER (chờ code Thành viên 6)")
-        # TODO: Tích hợp code của Thành viên 6
+        """Bước 10: Xuất dữ liệu & Báo cáo (Thành viên 6 - PLACEHOLDER)."""
+        log_warning("Bước 10: Xuất dữ liệu - PLACEHOLDER (chờ code Thành viên 6)")
         return self
 
     # ===================================================================
@@ -323,7 +360,6 @@ class DataPipeline:
 
         self.df.to_csv(output_path, index=False, encoding='utf-8-sig')
         log_success(f"Đã lưu {len(self.df):,} bản ghi → {output_path}")
-
         return self
 
     # ===================================================================
@@ -418,15 +454,14 @@ class DataPipeline:
     def run_all(self):
         """
         Chạy toàn bộ pipeline từ đầu đến cuối.
-        Chạy các bước đã tích hợp: làm sạch, chuẩn hóa, loại trùng và NLP.
+        Chạy các bước đã tích hợp: làm sạch, chuẩn hóa, loại trùng, NLP, encoding.
         """
         total_start = time.time()
 
         log_info("🚀 BẮT ĐẦU PIPELINE XỬ LÝ DỮ LIỆU TIN TỨC CÔNG NGHỆ")
-        log_info("="*60)
+        log_info("=" * 60)
 
         try:
-            # Các bước của Thành viên 2
             self.step_load_data()
             total_before = len(self.df)
 
@@ -443,6 +478,10 @@ class DataPipeline:
             # Vẽ biểu đồ pipeline funnel tổng thể
             self._visualize_pipeline_funnel()
 
+            # BƯỚC MỚI: Mã hóa nhãn và nguồn
+            self.step_encode_labels()
+            self.step_encode_source()
+
             # Tổng kết
             total_after = len(self.df)
             total_time = time.time() - total_start
@@ -457,7 +496,6 @@ class DataPipeline:
     def run_step(self, step_name):
         """
         Chạy một bước cụ thể.
-
         Args:
             step_name (str): Tên bước cần chạy.
         """
@@ -467,6 +505,8 @@ class DataPipeline:
             'normalize': self.step_normalize,
             'deduplicate': self.step_deduplicate,
             'preprocess_nlp': self.step_preprocess_nlp,
+            'encode_labels': self.step_encode_labels,
+            'encode_source': self.step_encode_source,
             'clustering': self.step_clustering,
             'train_model': self.step_train_model,
             'export': self.step_export,
@@ -716,7 +756,7 @@ if __name__ == '__main__':
         # Không có argument → hiện menu tương tác
         print("""
 ╔══════════════════════════════════════════════════════════════╗
-║        PIPELINE XỬ LÝ DỮ LIỆU TIN TỨC CÔNG NGHỆ          ║
+║        PIPELINE XỬ LÝ DỮ LIỆU TIN TỨC CÔNG NGHÊ          ║
 ║                     Nhóm 6 - Data Mining                     ║
 ╠══════════════════════════════════════════════════════════════╣
 ║                                                              ║
@@ -756,4 +796,3 @@ if __name__ == '__main__':
         else:
             print(f"❌ Lựa chọn '{choice}' không hợp lệ. Vui lòng chọn 0-6 hoặc 'q'.")
             sys.exit(1)
-
