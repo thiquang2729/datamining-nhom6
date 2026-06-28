@@ -48,11 +48,11 @@ DEFAULT_CONFIG = {
 # GÁN NHÃN CHO CỤM
 # ==========================
 CLUSTER_MAPPING = {
-    0: "Phan_cung",
-    1: "Tri_tue_nhan_tao",
-    2: "An_ninh_mang",
-    3: "Mobile",
-    4: "Software",
+    0: "Software",
+    1: "Phan_cung",
+    2: "Mobile",
+    3: "an_ninh_mang",
+    4: "Tri_tue_nhan_tao",
 }
  
  
@@ -710,6 +710,212 @@ def plot_dataset_split_pie(output_path):
 
     print("Đã lưu:", output_path)
 
+# ==========================
+# XUẤT MẪU ĐỂ GÁN NHÃN TAY + VẼ BIỂU ĐỒ
+# ==========================
+def export_sample_for_labeling(
+    df,
+    output_path,
+    chart_path=None,
+    n_per_cluster=200,
+    random_state=42
+):
+    """
+    Trích 200 bài/cụm × 5 cụm = 1000 bài
+    → Xuất CSV
+    → Vẽ biểu đồ phân bố mẫu để đưa vào báo cáo
+    """
+
+    samples = []
+
+    for cluster_id in sorted(df["cluster"].unique()):
+
+        cluster_df = df[df["cluster"] == cluster_id]
+
+        n = min(n_per_cluster, len(cluster_df))
+
+        sample = cluster_df.sample(
+            n=n,
+            random_state=random_state
+        )
+
+        samples.append(sample)
+
+    result = pd.concat(
+        samples,
+        ignore_index=True
+    )
+
+    # thêm cột gán nhãn tay
+    result.insert(
+        0,
+        "manual_label",
+        ""
+    )
+
+    cols_to_keep = [
+        "manual_label",
+        "cluster",
+        "label"
+    ]
+
+    for col in [
+        "title",
+        "content",
+        "processed_content",
+        "url"
+    ]:
+        if col in result.columns:
+            cols_to_keep.append(col)
+
+    result = result[cols_to_keep]
+
+    result = (
+        result
+        .sort_values("cluster")
+        .reset_index(drop=True)
+    )
+
+    # lưu CSV
+    safe_to_csv(
+        result,
+        output_path
+    )
+
+    # =====================
+    # VẼ BIỂU ĐỒ
+    # =====================
+    if chart_path:
+
+        counts = (
+            result["cluster"]
+            .value_counts()
+            .sort_index()
+        )
+
+        labels = [
+            CLUSTER_MAPPING.get(i)
+            for i in counts.index
+        ]
+
+        plt.figure(
+            figsize=(10, 6)
+        )
+
+        bars = plt.bar(
+            labels,
+            counts.values
+        )
+
+        plt.title(
+            "Phân bố 1000 bài",
+            fontsize=16,
+            weight="bold"
+        )
+
+        plt.xlabel(
+            "Cluster"
+        )
+
+        plt.ylabel(
+            "Số bài"
+        )
+
+        for bar in bars:
+
+            height = bar.get_height()
+
+            plt.text(
+                bar.get_x()
+                + bar.get_width()/2,
+                height + 5,
+                str(int(height)),
+                ha="center"
+            )
+
+        plt.tight_layout()
+
+        plt.savefig(
+            chart_path,
+            dpi=300
+        )
+
+        plt.close()
+
+        print(
+            f"Đã lưu biểu đồ: {chart_path}"
+        )
+
+    print("\n====================")
+    print("XUẤT MẪU GÁN NHÃN TAY")
+    print("====================")
+
+    print(
+        f"Tổng số bài xuất: {len(result)}"
+    )
+
+    print(
+        result["cluster"]
+        .value_counts()
+        .sort_index()
+    )
+
+    return result
+
+# ==========================
+# SO SÁNH NHÃN TAY vs K-MEANS
+# ==========================
+def compare_manual_vs_kmeans(labeled_path, output_path=None):
+    """
+    Sau khi gán nhãn tay xong → gọi hàm này để đánh giá K-Means chính xác bao nhiêu %.
+    """
+    df_labeled = pd.read_csv(labeled_path)
+
+    df_done = df_labeled[
+        df_labeled["manual_label"].notna() &
+        (df_labeled["manual_label"].str.strip() != "")
+    ]
+
+    if len(df_done) == 0:
+        print("[!] Chưa có dòng nào được gán nhãn tay.")
+        return
+
+    total = len(df_done)
+    match = (
+        df_done["manual_label"].str.strip() ==
+        df_done["label"].str.strip()
+    ).sum()
+    accuracy = match / total * 100
+
+    print("\n====================")
+    print("SO SÁNH NHÃN TAY vs K-MEANS")
+    print("====================")
+    print(f"Tổng bài đã gán nhãn tay : {total}")
+    print(f"Số bài khớp với K-Means  : {match}")
+    print(f"Độ chính xác K-Means     : {accuracy:.2f}%")
+    print("\nChi tiết theo cụm:")
+
+    for cluster_id in sorted(df_done["cluster"].unique()):
+        sub = df_done[df_done["cluster"] == cluster_id]
+        sub_match = (
+            sub["manual_label"].str.strip() ==
+            sub["label"].str.strip()
+        ).sum()
+        print(f"  Cluster {cluster_id} "
+              f"({CLUSTER_MAPPING.get(cluster_id)}): "
+              f"{sub_match}/{len(sub)} khớp "
+              f"({sub_match/len(sub)*100:.1f}%)")
+
+    if output_path:
+        df_done = df_done.copy()
+        df_done["is_match"] = (
+            df_done["manual_label"].str.strip() ==
+            df_done["label"].str.strip()
+        )
+        safe_to_csv(df_done, output_path)
+        print(f"\nĐã lưu kết quả so sánh: {output_path}")
+
+    return df_done
 
 # ============================================================
 # CHẠY ĐỘC LẬP: python src/modeling.py
@@ -734,6 +940,21 @@ if __name__ == "__main__":
  
     df, kmeans, keywords_per_cluster = cluster_and_label(df, X, vectorizer, cfg)
     clusters = df["cluster"].values
+
+    # Xuất 1000 bài mẫu để gán nhãn tay (200 bài × 5 cụm)
+    export_sample_for_labeling(
+        df,
+        os.path.join(
+            DATA_DIR,
+            "sample_for_labeling.csv"
+        ),
+        chart_path=os.path.join(
+            NOTEBOOKS_DIR,
+            "sample_label_distribution.png"
+        ),
+        n_per_cluster=200,
+        random_state=cfg["random_state"]
+    )
  
     save_keywords_report(
         keywords_per_cluster,
@@ -851,7 +1072,8 @@ if __name__ == "__main__":
     print(os.path.join(DATA_DIR, "train.csv"))
     print(os.path.join(DATA_DIR, "val.csv"))
     print(os.path.join(DATA_DIR, "test.csv"))
- 
+    print(os.path.join(DATA_DIR, "sample_for_labeling.csv"))  # thêm dòng này
+
     print("\nBiểu đồ:")
     print(os.path.join(NOTEBOOKS_DIR, "cluster_distribution.png"))
     print(os.path.join(NOTEBOOKS_DIR, "kmeans_vs_dbscan.png"))
