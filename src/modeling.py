@@ -101,7 +101,8 @@ def run_kmeans(X, k, random_state=42):
  
 def evaluate_clusters(X, clusters):
     score = silhouette_score(X, clusters)
-    db_score = davies_bouldin_score(X.toarray(), clusters)
+    X_dense = X.toarray() if hasattr(X, 'toarray') else X
+    db_score = davies_bouldin_score(X_dense, clusters)
  
     print("\n====================")
     print("KẾT QUẢ KMEANS")
@@ -962,10 +963,10 @@ if __name__ == "__main__":
         os.path.join(DATA_DIR, "cluster_keywords.txt"),
     )
 
-    generate_wordclouds(
-        keywords_per_cluster,
-        NOTEBOOKS_DIR
-    )
+    # generate_wordclouds(
+    #     keywords_per_cluster,
+    #     NOTEBOOKS_DIR
+    # )
  
     print("\n====================")
     print("SỐ LƯỢNG BÀI")

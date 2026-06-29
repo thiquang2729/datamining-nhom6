@@ -333,8 +333,27 @@ class DataPipeline:
         return self
 
     def step_train_model(self):
-        """Bước 9: Huấn luyện mô hình (Thành viên 5 - PLACEHOLDER)."""
-        log_warning("Bước 9: Huấn luyện mô hình - PLACEHOLDER (chờ code Thành viên 5)")
+        """Bước 9: Huấn luyện mô hình (Thành viên 5 - Deep Learning & Tuning)."""
+        with StepTimer("Bước 9: Huấn luyện mô hình", len(self.df) if self.df is not None else 0) as timer:
+            try:
+                from deep_learning_model import train_deep_learning_model
+                result = train_deep_learning_model(project_root=self.project_root)
+
+                if result.get("status") == "skipped":
+                    log_warning(f"Bước 9 bị bỏ qua: {result.get('reason')}")
+                elif result.get("status") == "completed":
+                    log_success(f"Huấn luyện hoàn tất — "
+                                f"Test Accuracy: {result['test_accuracy']:.4f}, "
+                                f"F1 Macro: {result['test_f1_macro']:.4f}")
+                    self.step_stats.append({
+                        'step': 'train_model',
+                        'before': result.get('train_size', 0),
+                        'after': result.get('test_size', 0),
+                        'time': timer.elapsed
+                    })
+            except Exception as e:
+                log_error(f"Bước 9 thất bại: {e}")
+                raise
         return self
 
     def step_export(self):
