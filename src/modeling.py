@@ -48,11 +48,11 @@ DEFAULT_CONFIG = {
 # GÁN NHÃN CHO CỤM
 # ==========================
 CLUSTER_MAPPING = {
-    0: "Software",
-    1: "Phan_cung",
-    2: "Mobile",
-    3: "an_ninh_mang",
-    4: "Tri_tue_nhan_tao",
+    0: "Mobile",            # iphone, apple, pro, max, ios, camera, gập
+    1: "Tri_tue_nhan_tao",  # ai, google, ứng_dụng, dữ_liệu, robot
+    2: "Chuyen_doi_so",     # việt_nam, doanh_nghiệp, chuyển_đổi, hạ_tầng
+    3: "Mobile",            # galaxy, samsung, pin, sạc, smartphone
+    4: "Hang_khong_vu_tru", # tên_lửa, vũ_trụ, mặt_trăng, nasa
 }
  
  
