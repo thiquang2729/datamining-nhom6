@@ -6,58 +6,52 @@
   "train_size": 12974,
   "val_size": 2780,
   "test_size": 2781,
-  "val_accuracy": 0.9413669064748201,
-  "val_f1_macro": 0.943619704744583,
-  "test_accuracy": 0.941747572815534,
-  "test_f1_macro": 0.9397079738108163,
+  "val_accuracy": 0.9579136690647482,
+  "val_f1_macro": 0.9560565254869999,
+  "test_accuracy": 0.9608054656598346,
+  "test_f1_macro": 0.9568003551582052,
   "classification_report": {
-    "AI_and_Digital_Economy": {
-      "precision": 0.9307359307359307,
-      "recall": 0.9129511677282378,
-      "f1-score": 0.9217577706323687,
-      "support": 471.0
+    "Mobile": {
+      "precision": 0.9467680608365019,
+      "recall": 0.950381679389313,
+      "f1-score": 0.9485714285714286,
+      "support": 262.0
     },
-    "Apple_iPhone": {
-      "precision": 0.9274744027303754,
-      "recall": 0.9577092511013215,
-      "f1-score": 0.9423493714781102,
-      "support": 1135.0
+    "Phan_cung": {
+      "precision": 0.9698795180722891,
+      "recall": 0.9470588235294117,
+      "f1-score": 0.9583333333333334,
+      "support": 170.0
     },
-    "Digital_Transformation": {
-      "precision": 0.9587155963302753,
-      "recall": 0.885593220338983,
-      "f1-score": 0.920704845814978,
-      "support": 236.0
+    "Software": {
+      "precision": 0.9534246575342465,
+      "recall": 0.9354838709677419,
+      "f1-score": 0.9443690637720489,
+      "support": 372.0
     },
-    "General_Tech": {
-      "precision": 0.9548736462093863,
-      "recall": 0.9600725952813067,
-      "f1-score": 0.9574660633484163,
-      "support": 551.0
+    "Tri_tue_nhan_tao": {
+      "precision": 0.9644760213143873,
+      "recall": 0.9713774597495528,
+      "f1-score": 0.9679144385026738,
+      "support": 559.0
     },
-    "Samsung_Galaxy": {
-      "precision": 0.9744680851063829,
-      "recall": 0.9744680851063829,
-      "f1-score": 0.9744680851063829,
-      "support": 235.0
+    "an_ninh_mang": {
+      "precision": 0.9627808988764045,
+      "recall": 0.9668547249647391,
+      "f1-score": 0.9648135116115412,
+      "support": 1418.0
     },
-    "Space_Technology": {
-      "precision": 0.9642857142857143,
-      "recall": 0.8823529411764706,
-      "f1-score": 0.9215017064846417,
-      "support": 153.0
-    },
-    "accuracy": 0.941747572815534,
+    "accuracy": 0.9608054656598346,
     "macro avg": {
-      "precision": 0.9517588958996775,
-      "recall": 0.928857876788784,
-      "f1-score": 0.9397079738108163,
+      "precision": 0.959465831326766,
+      "recall": 0.9542313117201517,
+      "f1-score": 0.9568003551582052,
       "support": 2781.0
     },
     "weighted avg": {
-      "precision": 0.9421028567265843,
-      "recall": 0.941747572815534,
-      "f1-score": 0.9415873254962112,
+      "precision": 0.9607954452123971,
+      "recall": 0.9608054656598346,
+      "f1-score": 0.9607757652872143,
       "support": 2781.0
     }
   }

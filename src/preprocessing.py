@@ -51,7 +51,12 @@ class TextPreprocessor:
         
         # 3. Loại bỏ từ dừng
         words = tokens.split()
-        filtered_words = [w for w in words if w not in self.stopwords]
+        filtered_words = [
+            w for w in words
+            if w not in self.stopwords
+            and not any(ch.isdigit() for ch in w)  # loại từ chứa số
+            and len(w) > 1  # loại ký tự đơn lẻ
+        ]
         
         return " ".join(filtered_words)
 

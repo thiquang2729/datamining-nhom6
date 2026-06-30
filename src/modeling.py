@@ -112,23 +112,43 @@ def evaluate_clusters(X, clusters):
     return score, db_score
  
  
-def get_top_keywords(kmeans, vectorizer, n_clusters, top_n=15):
+def get_top_keywords(df, vectorizer, clusters, n_clusters, text_column="processed_content", top_n=15):
+    """
+    Lấy top keywords cho từng cụm bằng cách tính lại TF-IDF GỐC (không qua SVD)
+    trên văn bản thực tế của từng cụm, rồi lấy trung bình điểm TF-IDF theo từ.
+
+    QUAN TRỌNG: không được dùng kmeans.cluster_centers_ để lấy keyword, vì
+    cluster_centers_ nằm trong không gian đã giảm chiều bằng TruncatedSVD
+    (vd 300 chiều), trong khi vectorizer.get_feature_names_out() trả về
+    danh sách từ của không gian TF-IDF gốc (vd 3000 từ). Hai không gian này
+    không tương ứng 1-1 với nhau, nên lấy index theo cluster_centers_ rồi
+    map sang tên từ gốc sẽ cho ra từ sai/vô nghĩa.
+    """
     terms = vectorizer.get_feature_names_out()
     keywords_per_cluster = {}
- 
+
     print("\n====================")
     print("TOP KEYWORDS")
     print("====================")
- 
+
     for i in range(n_clusters):
-        center = kmeans.cluster_centers_[i]
-        top_ids = center.argsort()[-top_n:][::-1]
+        texts_in_cluster = df.loc[clusters == i, text_column].fillna("")
+        if len(texts_in_cluster) == 0:
+            keywords_per_cluster[i] = []
+            print(f"\nCluster {i}")
+            print("(không có bài nào trong cụm này)")
+            continue
+
+        X_cluster = vectorizer.transform(texts_in_cluster)
+        mean_tfidf = np.asarray(X_cluster.mean(axis=0)).ravel()
+
+        top_ids = mean_tfidf.argsort()[-top_n:][::-1]
         words = [terms[idx] for idx in top_ids]
         keywords_per_cluster[i] = words
- 
+
         print(f"\nCluster {i}")
         print(", ".join(words))
- 
+
     return keywords_per_cluster
  
  
@@ -442,7 +462,7 @@ def cluster_and_label(df, X, vectorizer, config=None, cluster_mapping=None):
     df["cluster"] = clusters
  
     evaluate_clusters(X, clusters)
-    keywords_per_cluster = get_top_keywords(kmeans, vectorizer, k)
+    keywords_per_cluster = get_top_keywords(df, vectorizer, clusters, k)
  
     missing = set(range(k)) - set(mapping.keys())
     if missing:
