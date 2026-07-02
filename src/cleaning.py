@@ -145,9 +145,10 @@ def clean_data(df, config=None):
     df = remove_empty_rows(df, required_columns)
     stats['empty_removed'] = before_step - len(df)
 
-    # Bước 2: Loại bỏ URL lỗi
+    # Bước 2: Loại bỏ URL lỗi (nếu có cột url)
     before_step = len(df)
-    df = validate_urls(df)
+    if 'url' in df.columns:
+        df = validate_urls(df, 'url')
     stats['url_invalid'] = before_step - len(df)
 
     # Bước 3: Lọc theo độ dài

@@ -28,6 +28,7 @@ import joblib
 # Thêm thư mục src vào path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+from integration import integrate_data
 from cleaning import clean_data, visualize_cleaning_report
 from normalizer import normalize_dataframe, visualize_normalize_report
 from deduplicator import remove_duplicates, generate_dedup_report, visualize_dedup_report
@@ -115,6 +116,41 @@ class DataPipeline:
             checkpoint_path = os.path.join(checkpoint_dir, f'{step_name}.csv')
             self.df.to_csv(checkpoint_path, index=False, encoding='utf-8-sig')
             log_info(f"Đã lưu checkpoint: {checkpoint_path}")
+
+    # ===================================================================
+    # BƯỚC 1.5 (MỚI): TÍCH HỢP DỮ LIỆU (Thành viên 2)
+    # ===================================================================
+    def step_integration(self):
+        """Bước 1.5: Tích hợp dữ liệu từ 3 nguồn báo và lọc chỉ giữ lại 7 cột."""
+        integration_config = self.config.get('integration', {})
+        sources = [self._get_path(p) for p in integration_config.get('sources', [])]
+        keep_columns = integration_config.get('keep_columns', [
+            'article_id', 'title', 'description', 'main_content', 
+            'tags', 'category', 'sub_category'
+        ])
+        output_path = self._get_path(integration_config.get('output_path', 'data/news_data.csv'))
+
+        with StepTimer("Bước 1.5: Tích hợp dữ liệu") as timer:
+            try:
+                self.df = integrate_data(
+                    source_paths=sources,
+                    keep_columns=keep_columns,
+                    output_path=output_path,
+                    encoding=self.config.get('encoding', 'utf-8-sig')
+                )
+                before = len(self.df)
+                self.step_stats.append({
+                    'step': 'integration',
+                    'before': before,
+                    'after': before,
+                    'time': timer.elapsed
+                })
+            except Exception as e:
+                log_error(f"Tích hợp dữ liệu thất bại: {e}")
+                raise
+
+        self._save_checkpoint('01_integrated')
+        return self
 
     # ===================================================================
     # BƯỚC 1: ĐỌC DỮ LIỆU THÔ
@@ -409,6 +445,7 @@ class DataPipeline:
         step_names = []
         step_values = []
         step_name_map = {
+            'integration': 'Tích hợp',
             'load_data': 'Dữ liệu thô',
             'clean': 'Làm sạch',
             'normalize': 'Chuẩn hóa',
@@ -481,7 +518,7 @@ class DataPipeline:
         log_info("=" * 60)
 
         try:
-            self.step_load_data()
+            self.step_integration()
             total_before = len(self.df)
 
             self.step_clean()
@@ -519,6 +556,7 @@ class DataPipeline:
             step_name (str): Tên bước cần chạy.
         """
         steps = {
+            'integration': self.step_integration,
             'load_data': self.step_load_data,
             'clean': self.step_clean,
             'normalize': self.step_normalize,
@@ -576,15 +614,15 @@ class DataPipeline:
 
     def run_tv2(self):
         """
-        Chạy phần của Thành viên 2 (Lê Quang Thi): Làm sạch, Chuẩn hóa, Loại trùng.
-        Bước 1-4: load → clean → normalize → deduplicate → lưu cleaned_news.csv
+        Chạy phần của Thành viên 2 (Lê Quang Thi): Tích hợp, Làm sạch, Chuẩn hóa, Loại trùng.
+        Bước 1-4: integration → clean → normalize → deduplicate → lưu cleaned_news.csv
         """
         total_start = time.time()
-        log_info("🔹 CHẠY PHẦN THÀNH VIÊN 2: Cleaning & Normalization & Dedup")
+        log_info("🔹 CHẠY PHẦN THÀNH VIÊN 2: Integration & Cleaning & Normalization & Dedup")
         log_info("=" * 60)
 
         try:
-            self.step_load_data()
+            self.step_integration()
             total_before = len(self.df)
 
             self.step_clean()
@@ -730,7 +768,7 @@ def print_usage():
 ║  Các option:                                                 ║
 ║    all   - Chạy toàn bộ pipeline (mặc định)                  ║
 ║    tv1   - Thành viên 1: Thu thập dữ liệu & EDA             ║
-║    tv2   - Thành viên 2: Làm sạch, Chuẩn hóa, Loại trùng   ║
+║    tv2   - Thành viên 2: Tích hợp, Làm sạch, Chuẩn hóa, Loại trùng ║
 ║    tv3   - Thành viên 3: Tiền xử lý NLP & TF-IDF            ║
 ║    tv4   - Thành viên 4: Phân cụm & Gán nhãn                ║
 ║    tv5   - Thành viên 5: Deep Learning & Tuning              ║
@@ -782,7 +820,7 @@ if __name__ == '__main__':
 ║  [0]  Chạy toàn bộ pipeline (all)                            ║
 ║                                                              ║
 ║  [1]  TV1 - Ngô Hoàng Anh:    Thu thập dữ liệu & EDA       ║
-║  [2]  TV2 - Lê Quang Thi:     Làm sạch, Chuẩn hóa, Dedup   ║
+║  [2]  TV2 - Lê Quang Thi:     Tích hợp, Làm sạch, Chuẩn hóa, Dedup ║
 ║  [3]  TV3 - Tôn Hoàng Nhớ:    Tiền xử lý NLP & TF-IDF      ║
 ║  [4]  TV4 - Nguyễn Văn Trường: Phân cụm & Gán nhãn          ║
 ║  [5]  TV5 - (Thành viên 5):   Deep Learning & Tuning         ║

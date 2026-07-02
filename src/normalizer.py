@@ -272,23 +272,12 @@ def normalize_dataframe(df, text_columns=None, config=None):
                                           )
 
     # Chuyển các trường văn bản khác được giữ lại thành chữ thường
-    other_text_cols = ['author_name', 'tags', 'category', 'sub_category']
+    other_text_cols = ['tags', 'category', 'sub_category']
     for col in other_text_cols:
         if col in df.columns:
             log_info(f"  Đang chuyển cột '{col}' thành chữ thường...")
             df[col] = df[col].astype(str).str.lower()
             log_info(f"  ✔ Cột '{col}' đã chuyển sang chữ thường")
-
-    # Lọc chỉ giữ lại 8 cột quan trọng
-    keep_columns = [
-        'article_id', 'title', 'description', 'main_content',
-        'author_name', 'tags', 'category', 'sub_category'
-    ]
-    # Chỉ giữ lại các cột có thực tế trong df
-    keep_columns_present = [col for col in keep_columns if col in df.columns]
-
-    log_info(f"Đang lọc DataFrame chỉ giữ lại các cột: {keep_columns_present}")
-    df = df[keep_columns_present]
 
     log_success(f"Chuẩn hóa hoàn tất: {len(df):,} bản ghi")
 

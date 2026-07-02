@@ -2,8 +2,25 @@
     "input_path": "data/news_data.csv",
     "output_cleaned_path": "data/cleaned_news.csv",
     "output_processed_path": "data/processed_news.csv",
+    "integration": {
+        "sources": [
+            "data/vnexpress.csv",
+            "data/thanhnien.csv",
+            "data/vietnamnet.csv"
+        ],
+        "output_path": "data/news_data.csv",
+        "keep_columns": [
+            "article_id",
+            "title",
+            "description",
+            "main_content",
+            "tags",
+            "category",
+            "sub_category"
+        ]
+    },
     "cleaning": {
-        "required_columns": ["title", "main_content", "url"],
+        "required_columns": ["title", "main_content"],
         "min_words": 50,
         "max_words": 10000
     },
