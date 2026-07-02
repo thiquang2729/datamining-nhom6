@@ -13,7 +13,7 @@ Chức năng:
 """
 
 import pandas as pd
-from logger import log_info, log_success, log_warning
+from logger import log_info, log_warning
 
 
 def find_exact_duplicates(df, column='main_content'):
@@ -44,30 +44,6 @@ def find_exact_duplicates(df, column='main_content'):
 
     return df, duplicated_mask
 
-
-def find_title_duplicates(df, column='title'):
-    """
-    Phát hiện các bài viết có tiêu đề bị lặp lại.
-
-    Args:
-        df (pd.DataFrame): DataFrame đầu vào.
-        column (str): Cột tiêu đề.
-
-    Returns:
-        tuple: (DataFrame, Series mask các bản ghi trùng tiêu đề)
-    """
-    if column not in df.columns:
-        log_warning(f"Cột '{column}' không tồn tại trong DataFrame.")
-        return df, pd.Series([False] * len(df))
-
-    log_info(f"Đang kiểm tra trùng lặp tiêu đề trên cột '{column}'...")
-
-    duplicated_mask = df.duplicated(subset=[column], keep='first')
-
-    dup_count = duplicated_mask.sum()
-    log_info(f"Trùng lặp tiêu đề: {dup_count:,} bản ghi bị lặp lại")
-
-    return df, duplicated_mask
 
 
 def remove_duplicates(df, column='main_content', keep='first'):

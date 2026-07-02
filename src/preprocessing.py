@@ -1,5 +1,4 @@
 import pandas as pd
-import numpy as np
 from underthesea import word_tokenize
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.decomposition import TruncatedSVD

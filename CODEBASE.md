@@ -488,7 +488,6 @@ DataFrame đã làm sạch
 | `remove_special_characters(text)` | (1) Xóa emoji bằng regex Unicode range (U+1F600–U+1F64F, v.v.). (2) Chỉ giữ lại: `a-z`, `0-9`, khoảng trắng, và toàn bộ ký tự tiếng Việt có dấu (àáảãạ...ỵđ). Mọi ký tự khác (dấu câu, ký tự đặc biệt) bị thay bằng khoảng trắng. |
 | `normalize_whitespace(text)` | Gộp nhiều khoảng trắng liên tiếp thành 1, trim đầu/cuối. |
 | `normalize_text(text)` | **Pipeline tổng hợp**: gọi lần lượt 6 bước trên cho 1 đoạn văn bản. |
-| `clean_base64_columns(df, columns)` | Xóa dữ liệu base64/ảnh nhúng trong các cột `thumbnail_url`, `images`. |
 | `normalize_dataframe(df, text_columns, config)` | **Hàm chính**: áp dụng `normalize_text()` cho 3 cột chính, chuyển 3 cột phụ sang lowercase. Trả về `(DataFrame, dict stats)`. |
 | `visualize_normalize_report(stats, save_dir)` | Vẽ 3 biểu đồ: (1) bar chart loại nhiễu, (2) so sánh ký tự trước/sau, (3) pie chart tỷ lệ nhiễu. |
 
@@ -538,7 +537,6 @@ DataFrame đã chuẩn hóa
 | Hàm | Tác dụng |
 |---|---|
 | `find_exact_duplicates(df, column)` | Dùng `df.duplicated(subset=[column], keep='first')` để tìm bản ghi trùng. Trả về `(DataFrame, mask_series)`. |
-| `find_title_duplicates(df, column)` | Tương tự nhưng kiểm tra cột tiêu đề (`title`). |
 | `remove_duplicates(df, column, keep)` | Gọi `find_exact_duplicates()`, loại bỏ dòng trùng (`df[~dup_mask]`), reset index. |
 | `generate_dedup_report(df_before, df_after, domain_column)` | Tính thống kê: tổng trước/sau, số đã loại, tỷ lệ %, thống kê theo từng domain. In báo cáo trên terminal. |
 | `visualize_dedup_report(df_before, df_after, domain_column, save_dir)` | Vẽ 3 biểu đồ: (1) bar chart domain trước/sau, (2) pie chart giữ/trùng, (3) so sánh tổng trước/sau. |
