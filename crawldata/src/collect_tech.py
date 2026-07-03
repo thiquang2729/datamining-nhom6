@@ -18,7 +18,7 @@ from bs4 import BeautifulSoup
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(message)s', datefmt='%H:%M:%S')
 logger = logging.getLogger(__name__)
 
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 _DATA_DIR = _PROJECT_ROOT / "data"
 OUTPUT_FILE = str(_DATA_DIR / "tech_urls.txt")
 TARGET_TOTAL = 20_000

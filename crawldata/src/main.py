@@ -40,7 +40,7 @@ ok_count = 0
 fail_count = 0
 
 # Đường dẫn tuyệt đối đến thư mục data/ (nằm ngoài src/)
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 _DATA_DIR = _PROJECT_ROOT / "data"
 
 # Đường dẫn riêng cho từng nguồn

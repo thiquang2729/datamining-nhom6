@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 import matplotlib
 matplotlib.rcParams['font.family'] = ['DejaVu Sans', 'Arial', 'sans-serif']
 
-CSV_PATH = Path(__file__).resolve().parent.parent / "data" / "news_data.csv"
+CSV_PATH = Path(__file__).resolve().parent.parent.parent / "data" / "news_data.csv"
 OUTPUT_DIR = Path(__file__).resolve().parent.parent / "output"
 
 def load_data():

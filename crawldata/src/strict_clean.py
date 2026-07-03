@@ -65,7 +65,7 @@ from pathlib import Path
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
 def main():
-    _PROJECT_ROOT = Path(__file__).resolve().parent.parent
+    _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
     csv_file = str(_PROJECT_ROOT / "data" / "news_data.csv")
     if not os.path.exists(csv_file):
         print(f"Lỗi: Không tìm thấy file {csv_file}")
