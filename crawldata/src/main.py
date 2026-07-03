@@ -42,7 +42,13 @@ fail_count = 0
 # Đường dẫn tuyệt đối đến thư mục data/ (nằm ngoài src/)
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 _DATA_DIR = _PROJECT_ROOT / "data"
-CSV_FILE = str(_DATA_DIR / "news_data.csv")
+
+# Mapping domain → CSV output file path
+DOMAIN_CSV_MAP: Dict[str, str] = {
+    "vnexpress.net": str(_DATA_DIR / "vnexpress.csv"),
+    "vietnamnet.vn": str(_DATA_DIR / "vietnamnet.csv"),
+    "thanhnien.vn":  str(_DATA_DIR / "thanhnien.csv"),
+}
 
 def load_urls_from_file(file_path: Path) -> List[str]:
     """Read a plain‑text file (one URL per line) and return a list."""
@@ -60,15 +66,14 @@ def get_domain(url: str) -> str:
 
 
 def init_csv():
-    """Khởi tạo file CSV và ghi header nếu chưa có."""
-    file_exists = os.path.exists(CSV_FILE)
-    # Nếu file chưa tồn tại hoặc user muốn ghi đè từ đầu, mở mode "w". 
-    # Ở đây dùng mode "w" để xoá data cũ, tạo data mới tinh.
-    with open(CSV_FILE, "w", encoding="utf-8-sig", newline="") as f:
-        # Lấy fieldnames từ mô hình Article
-        fieldnames = list(Article.__dataclass_fields__.keys())
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
-        writer.writeheader()
+    """Khởi tạo các file CSV cho từng nguồn và ghi header nếu chưa có."""
+    fieldnames = list(Article.__dataclass_fields__.keys())
+    for name, csv_path in DOMAIN_CSV_MAP.items():
+        os.makedirs(os.path.dirname(csv_path), exist_ok=True)
+        # Ghi đè file cũ để tạo dữ liệu mới tinh
+        with open(csv_path, "w", encoding="utf-8-sig", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
 
 
 def process_url(url: str, total_urls: int) -> None:
@@ -90,10 +95,12 @@ def process_url(url: str, total_urls: int) -> None:
             # Ép category = "Công nghệ" cho tất cả bài viết
             article.category = "Công nghệ"
             
-            # Ghi trực tiếp vào CSV (lưu dần)
-            with open(CSV_FILE, "a", encoding="utf-8-sig", newline="") as f:
-                writer = csv.DictWriter(f, fieldnames=list(Article.__dataclass_fields__.keys()))
-                writer.writerow(asdict(article))
+            # Ghi trực tiếp vào CSV tương ứng (lưu dần)
+            csv_file = DOMAIN_CSV_MAP.get(domain)
+            if csv_file:
+                with open(csv_file, "a", encoding="utf-8-sig", newline="") as f:
+                    writer = csv.DictWriter(f, fieldnames=list(Article.__dataclass_fields__.keys()))
+                    writer.writerow(asdict(article))
                 
             ok_count += 1
             title_short = (article.title[:60] + '...') if article.title and len(article.title) > 60 else article.title
@@ -126,12 +133,12 @@ def main(url_file: str = None):
 
     total = len(urls)
     print(f"\n{'='*60}")
-    print(f"  SCRAPE BÀI VIẾT CÔNG NGHỆ VÀ LƯU DẦN VÀO CSV")
+    print(f"  SCRAPE BÀI VIẾT CÔNG NGHỆ VÀ GHI VÀO CÁC FILE CSV NGUỒN")
     print(f"  Tổng số URL: {total:,}")
-    print(f"  Chế độ     : Đa luồng (15 threads) - Ghi CSV Realtime")
+    print(f"  Chế độ     : Đa luồng (15 threads) - Ghi CSV Realtime riêng biệt")
     print(f"{'='*60}\n")
 
-    # Khởi tạo CSV (tạo mới và ghi header)
+    # Khởi tạo các file CSV (tạo mới và ghi header)
     init_csv()
 
     # Chạy đa luồng
@@ -144,7 +151,9 @@ def main(url_file: str = None):
     print(f"  ✅ Thành công : {ok_count:,} / {total:,}")
     print(f"  ❌ Thất bại   : {fail_count:,} / {total:,}")
     print(f"  Tỉ lệ OK      : {ok_count/total*100:.1f}%")
-    print(f"  Dữ liệu lưu   : {CSV_FILE}")
+    print(f"  Dữ liệu lưu vào 3 file nguồn:")
+    for name, csv_path in DOMAIN_CSV_MAP.items():
+        print(f"    - {name}: {csv_path}")
     print(f"{'='*60}\n")
 
 
