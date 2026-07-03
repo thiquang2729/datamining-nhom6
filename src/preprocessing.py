@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 from underthesea import word_tokenize
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.decomposition import TruncatedSVD
@@ -53,7 +54,6 @@ class TextPreprocessor:
         filtered_words = [
             w for w in words
             if w not in self.stopwords
-            and not any(ch.isdigit() for ch in w)  # loại từ chứa số
             and len(w) > 1  # loại ký tự đơn lẻ
         ]
         

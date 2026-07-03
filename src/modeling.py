@@ -48,11 +48,11 @@ DEFAULT_CONFIG = {
 # GÁN NHÃN CHO CỤM
 # ==========================
 CLUSTER_MAPPING = {
-    0: "Mobile",            # iphone, apple, pro, max, ios, camera, gập
-    1: "Tri_tue_nhan_tao",  # ai, google, ứng_dụng, dữ_liệu, robot
-    2: "Chuyen_doi_so",     # việt_nam, doanh_nghiệp, chuyển_đổi, hạ_tầng
-    3: "Mobile",            # galaxy, samsung, pin, sạc, smartphone
-    4: "Hang_khong_vu_tru", # tên_lửa, vũ_trụ, mặt_trăng, nasa
+    0: "Phan_cung",         # iphone, apple, pro, 17, 16, max, màn_hình, air
+    1: "Hang_khong_vu_tru", # tên_lửa, tàu, bay, vũ_trụ, mặt_trăng, nasa
+    2: "Tri_tue_nhan_tao",  # ai, google, usd, ứng_dụng, dữ_liệu, robot, chip
+    3: "Software",          # việt_nam, công_nghệ, doanh_nghiệp, phát_triển
+    4: "Mobile",            # galaxy, samsung, s26, ui, one, ultra, s25
 }
  
  
@@ -289,7 +289,8 @@ def plot_kmeans_vs_dbscan(k, n_clusters_dbscan, output_path):
 def plot_pca(X, clusters, output_path):
     print("\nĐang tạo PCA...")
     pca = PCA(n_components=2)
-    X_pca = pca.fit_transform(X.toarray())
+    X_dense = X.toarray() if hasattr(X, "toarray") else X
+    X_pca = pca.fit_transform(X_dense)
  
     plt.figure(figsize=(10, 8))
     plt.scatter(X_pca[:, 0], X_pca[:, 1], c=clusters, s=5)
@@ -327,8 +328,10 @@ def save_tfidf_matrix(X, vectorizer, output_path, rows=30, cols=20):
 
     terms = vectorizer.get_feature_names_out()
 
+    X_sub = X[:rows, :cols]
+    X_dense = X_sub.toarray() if hasattr(X_sub, "toarray") else X_sub
     tfidf_df = pd.DataFrame(
-        X[:rows, :cols].toarray(),
+        X_dense,
         columns=terms[:cols]
     )
 
@@ -352,7 +355,9 @@ def plot_tfidf_heatmap(
 
     terms = vectorizer.get_feature_names_out()
 
-    tfidf_sample = X[:rows, :cols].toarray()
+    X_sub = X[:rows, :cols]
+    tfidf_sample = X_sub.toarray() if hasattr(X_sub, "toarray") else X_sub
+
 
     plt.figure(figsize=(16, 8))
 
