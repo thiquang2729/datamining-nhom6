@@ -25,7 +25,7 @@ def remove_empty_rows(df, required_columns=None):
         pd.DataFrame: DataFrame đã loại bỏ các dòng rỗng.
     """
     if required_columns is None:
-        required_columns = ['title', 'main_content', 'url']
+        required_columns = ['title', 'main_content']
 
     before = len(df)
 
@@ -42,41 +42,6 @@ def remove_empty_rows(df, required_columns=None):
 
     return df
 
-
-def validate_urls(df, url_column='url'):
-    """
-    Kiểm tra và loại bỏ các URL không hợp lệ.
-
-    Args:
-        df (pd.DataFrame): DataFrame đầu vào.
-        url_column (str): Tên cột chứa URL.
-
-    Returns:
-        pd.DataFrame: DataFrame đã loại bỏ các URL lỗi.
-    """
-    if url_column not in df.columns:
-        log_warning(f"Cột '{url_column}' không tồn tại trong DataFrame.")
-        return df
-
-    before = len(df)
-
-    # Regex kiểm tra URL hợp lệ: phải bắt đầu bằng http:// hoặc https://
-    url_pattern = re.compile(
-        r'^https?://'           # Bắt đầu bằng http:// hoặc https://
-        r'[a-zA-Z0-9.-]+'      # Domain
-        r'\.[a-zA-Z]{2,}'       # TLD (ít nhất 2 ký tự)
-    )
-
-    # Lọc các URL hợp lệ
-    valid_mask = df[url_column].astype(str).apply(
-        lambda x: bool(url_pattern.match(x))
-    )
-    df = df[valid_mask]
-
-    removed = before - len(df)
-    log_info(f"Loại bỏ URL lỗi: {removed:,} bản ghi")
-
-    return df
 
 
 def filter_by_length(df, content_column='main_content', min_words=50, max_words=10000):
@@ -131,7 +96,7 @@ def clean_data(df, config=None):
     if config is None:
         config = {}
 
-    required_columns = config.get('required_columns', ['title', 'main_content', 'url'])
+    required_columns = config.get('required_columns', ['title', 'main_content'])
     min_words = config.get('min_words', 50)
     max_words = config.get('max_words', 10000)
 
@@ -144,12 +109,6 @@ def clean_data(df, config=None):
     before_step = len(df)
     df = remove_empty_rows(df, required_columns)
     stats['empty_removed'] = before_step - len(df)
-
-    # Bước 2: Loại bỏ URL lỗi (nếu có cột url)
-    before_step = len(df)
-    if 'url' in df.columns:
-        df = validate_urls(df, 'url')
-    stats['url_invalid'] = before_step - len(df)
 
     # Bước 3: Lọc theo độ dài
     before_step = len(df)

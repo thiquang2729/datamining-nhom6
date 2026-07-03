@@ -132,12 +132,12 @@ def main(url_file: str = None):
 
     total = len(urls)
     print(f"\n{'='*60}")
-    print(f"  SCRAPE BÀI VIẾT CÔNG NGHỆ VÀ LƯU DẦN VÀO CSV")
+    print(f"  SCRAPE BÀI VIẾT CÔNG NGHỆ VÀ GHI VÀO CÁC FILE CSV NGUỒN")
     print(f"  Tổng số URL: {total:,}")
-    print(f"  Chế độ     : Đa luồng (15 threads) - Ghi CSV Realtime")
+    print(f"  Chế độ     : Đa luồng (15 threads) - Ghi CSV Realtime riêng biệt")
     print(f"{'='*60}\n")
 
-    # Khởi tạo CSV (tạo mới và ghi header)
+    # Khởi tạo các file CSV (tạo mới và ghi header)
     init_csv()
 
     # Chạy đa luồng

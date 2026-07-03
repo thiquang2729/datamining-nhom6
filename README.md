@@ -130,11 +130,39 @@ Du lieu tho
 | `data/vietnamese-stopwords.txt` | Danh sach tu dung tieng Viet can loai bo |
 | `models/vectorizer.pkl` | Vectorizer da hoc tu tap du lieu, dung lai khi xu ly du lieu moi |
 
-## Cach chay
+## Hướng dẫn chạy code của từng thành viên
 
+Dự án hỗ trợ chạy riêng phần code của từng thành viên hoặc chạy toàn bộ pipeline thông qua file điều phối chính [pipeline.py](file:///d:/Dev/Code/Nhom8_DataMining_NEWS/src/pipeline.py).
+
+### 1. Cài đặt thư viện (Bắt buộc cho tất cả các thành viên)
+Trước khi chạy bất kỳ phần code nào, vui lòng cài đặt các thư viện cần thiết:
 ```bash
 pip install -r requirements.txt
-python src/pipeline.py
 ```
 
-Co the sua duong dan input/output va tham so tien xu ly trong `config.json`.
+### 2. Chạy qua Menu tương tác
+Bạn có thể chạy lệnh sau mà không truyền tham số để hiển thị menu tương tác trên terminal và chọn phần mình muốn chạy (từ 0 đến 6):
+```bash
+ 
+```
+
+### 3. Chạy trực tiếp bằng tham số dòng lệnh cho từng thành viên
+
+| Thành viên | Tên | Phụ trách | Lệnh chạy |
+|---|---|---|---|
+| **TV1** | Ngô Hoàng Anh | Thu thập dữ liệu & EDA | `python src/pipeline.py tv1` |
+| **TV2** | Lê Quang Thi | Tích hợp, Làm sạch, Chuẩn hóa, Loại trùng | `python src/pipeline.py tv2` |
+| **TV3** | Tôn Hoàng Nhớ | Tiền xử lý NLP & TF-IDF | `python src/pipeline.py tv3` |
+| **TV4** | Nguyễn Văn Trường | Phân cụm & Gán nhãn | `python src/pipeline.py tv4` |
+| **TV5** | (Thành viên 5) | Huấn luyện Deep Learning & Tuning | `python src/pipeline.py tv5` |
+| **TV6** | Khánh Huyền | Xuất dữ liệu & Báo cáo | `python src/pipeline.py tv6` |
+| **Toàn bộ**| Cả nhóm | Chạy toàn bộ pipeline từ đầu đến cuối | `python src/pipeline.py all` |
+
+### 4. Chạy các module độc lập
+Nếu muốn chạy riêng các file xử lý hoặc vẽ biểu đồ độc lập:
+* **Vẽ biểu đồ EDA & Thu thập (TV1):** [visualize_collection.py](file:///d:/Dev/Code/Nhom8_DataMining_NEWS/src/visualize_collection.py) hoặc [visualize_extra.py](file:///d:/Dev/Code/Nhom8_DataMining_NEWS/src/visualize_extra.py)
+* **Phân cụm KMeans & Gán nhãn (TV4):** [modeling.py](file:///d:/Dev/Code/Nhom8_DataMining_NEWS/src/modeling.py)
+* **Huấn luyện mô hình DL (TV5):** [deep_learning_model.py](file:///d:/Dev/Code/Nhom8_DataMining_NEWS/src/deep_learning_model.py)
+
+*Lưu ý: Có thể cấu hình các đường dẫn đầu vào/đầu ra và các tham số khác trong file [config.json](file:///d:/Dev/Code/Nhom8_DataMining_NEWS/config.json) ở thư mục gốc.*
+
