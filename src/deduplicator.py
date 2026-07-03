@@ -13,7 +13,7 @@ Chức năng:
 """
 
 import pandas as pd
-from logger import log_info, log_warning
+from logger import log_info, log_warning, log_success
 
 
 def find_exact_duplicates(df, column='main_content'):

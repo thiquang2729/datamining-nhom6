@@ -48,10 +48,10 @@ DEFAULT_CONFIG = {
 # GÁN NHÃN CHO CỤM
 # ==========================
 CLUSTER_MAPPING = {
-    0: "Phan_cung",         # iphone, apple, pro, 17, 16, max, màn_hình, air
-    1: "Hang_khong_vu_tru", # tên_lửa, tàu, bay, vũ_trụ, mặt_trăng, nasa
-    2: "Tri_tue_nhan_tao",  # ai, google, usd, ứng_dụng, dữ_liệu, robot, chip
-    3: "Software",          # việt_nam, công_nghệ, doanh_nghiệp, phát_triển
+    0: "Software",          # việt_nam, công_nghệ, doanh_nghiệp, phát_triển
+    1: "Tri_tue_nhan_tao",  # ai, google, usd, ứng_dụng, dữ_liệu, robot, chip
+    2: "Hang_khong_vu_tru", # tên_lửa, tàu, bay, vũ_trụ, mặt_trăng, nasa
+    3: "Phan_cung",         # iphone, apple, pro, 17, 16, max, màn_hình, air
     4: "Mobile",            # galaxy, samsung, s26, ui, one, ultra, s25
 }
  
@@ -94,7 +94,7 @@ def plot_elbow(X, k_range, output_path, random_state=42):
  
 def run_kmeans(X, k, random_state=42):
     print(f"\nĐang chạy KMeans với K = {k}")
-    kmeans = KMeans(n_clusters=k, random_state=random_state, n_init=10)
+    kmeans = KMeans(n_clusters=k, random_state=random_state, n_init=20, max_iter=500)
     clusters = kmeans.fit_predict(X)
     return kmeans, clusters
  

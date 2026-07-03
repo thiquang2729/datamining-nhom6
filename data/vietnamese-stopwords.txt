@@ -117,3 +117,13 @@ máy
 ảnh
 giá
 công_ty
+màn_hình
+pin
+tính_năng
+sản_phẩm
+tháng
+ra_mắt
+bộ
+tỉnh
+dòng
+mẫu

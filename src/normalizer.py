@@ -227,7 +227,7 @@ def normalize_dataframe(df, text_columns=None, config=None):
                 flags=re.UNICODE
             )
             stats['emoji_removed'] += int(col_text.apply(
-                lambda x: len(emoji_pattern.findall(x))
+                lambda x: len(emoji_pattern.findall(x)) if isinstance(x, str) else 0
             ).sum())
 
     # Chuẩn hóa các cột văn bản chính
