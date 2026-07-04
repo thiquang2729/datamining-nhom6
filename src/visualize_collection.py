@@ -13,6 +13,13 @@ Vẽ và lưu 7 hình phục vụ phần Data Collection – Visualization & Ins
 Output: lưu tất cả ảnh vào thư mục  notebooks/
 Chạy độc lập: python src/visualize_collection.py
 Hoặc gọi từ pipeline: from visualize_collection import run_collection_viz
+
+LƯU Ý: cột "label" trong clustered_news.csv giờ được sinh ra bởi
+src/cluster_news.py (chạy K-Means trên data/processed_news.csv), với
+Cluster 1 nay là "Hang_khong_vu_tru" (Hàng không - Vũ trụ) thay cho
+"An_ninh_mang" trước đây. Nếu bạn dùng pipeline mới, hãy chạy:
+    python src/cluster_news.py
+trước khi chạy file này, để data/clustered_news.csv được cập nhật.
 """
  
 import os
@@ -44,7 +51,7 @@ GRAY   = "#888780"
 PALETTE = [
     "#1F77B4",   # Phần cứng
     "#FF7F0E",   # AI
-    "#2CA02C",   # An ninh mạng
+    "#2CA02C",   # Hàng không - Vũ trụ
     "#D62728",   # Mobile
     "#9467BD",   # Software
 ]
@@ -58,6 +65,20 @@ plt.rcParams.update({
     "grid.linestyle":    "--",
     "figure.dpi":        150,
 })
+
+
+# ── Helper: tự dò tên cột (phòng trường hợp tên cột thực tế khác) ──────────
+def _find_col(df, candidates, required=True, what=""):
+    """Trả về tên cột đầu tiên trong candidates có mặt trong df.columns."""
+    for c in candidates:
+        if c in df.columns:
+            return c
+    if required:
+        raise KeyError(
+            f"Không tìm thấy cột {what or candidates} trong dữ liệu. "
+            f"Các cột hiện có: {df.columns.tolist()}"
+        )
+    return None
  
  
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -70,7 +91,8 @@ def run_collection_viz(news_csv=NEWS_CSV, clustered_csv=CLUSTERED_CSV, out_dir=O
  
     Args:
         news_csv      (str): Đường dẫn tới news_data.csv
-        clustered_csv (str): Đường dẫn tới clustered_news.csv
+        clustered_csv (str): Đường dẫn tới clustered_news.csv (sinh ra bởi
+                              src/cluster_news.py từ data/processed_news.csv)
         out_dir       (str): Thư mục lưu ảnh (mặc định: notebooks/)
     """
     os.makedirs(out_dir, exist_ok=True)
@@ -78,41 +100,72 @@ def run_collection_viz(news_csv=NEWS_CSV, clustered_csv=CLUSTERED_CSV, out_dir=O
     # ── Đọc dữ liệu ────────────────────────────────────────────────────────
     print("[visualize_collection] Đang đọc dữ liệu...")
     df = pd.read_csv(news_csv)
-    df["published_time"] = pd.to_datetime(df["published_time"], utc=True, errors="coerce")
-    df["year"]  = df["published_time"].dt.year
-    df["month"] = df["published_time"].dt.to_period("M")
+
+    date_col = _find_col(
+        df,
+        ["published_time", "publish_time", "published_date", "publish_date",
+         "date", "time", "created_at", "crawl_time"],
+        required=False,
+        what="ngày đăng (published_time)",
+    )
+    has_date = date_col is not None
+    if has_date:
+        df["published_time"] = pd.to_datetime(df[date_col], utc=True, errors="coerce")
+        df["year"]  = df["published_time"].dt.year
+        df["month"] = df["published_time"].dt.to_period("M")
+    else:
+        print("[visualize_collection] CẢNH BÁO: không tìm thấy cột ngày đăng trong "
+              f"news_data.csv (các cột hiện có: {df.columns.tolist()}). "
+              "Sẽ bỏ qua hình Timeline (collection_04_timeline.png).")
  
     df_cl = pd.read_csv(clustered_csv)
+    # cluster_news.py ghi nhãn vào cột "sub_category" (không phải "label")
+    label_col = _find_col(df_cl, ["sub_category", "label"], what="nhãn cụm")
  
     # ── Chuẩn bị các giá trị dùng chung ────────────────────────────────────
-    domain_counts = df["domain"].value_counts()
-    dom_labels = ["VnExpress", "VietnamNet", "Thanh Niên"]
-    dom_values = [
-        domain_counts.get("vnexpress.net", 0),
-        domain_counts.get("vietnamnet.vn",  0),
-        domain_counts.get("thanhnien.vn",   0),
-    ]
+    domain_col = _find_col(
+        df, ["domain", "source", "site", "news_source"],
+        required=False, what="nguồn báo (domain)",
+    )
+    has_domain = domain_col is not None
+    if has_domain:
+        domain_counts = df[domain_col].value_counts()
+        dom_labels = ["VnExpress", "VietnamNet", "Thanh Niên"]
+        dom_values = [
+            domain_counts.get("vnexpress.net", 0),
+            domain_counts.get("vietnamnet.vn",  0),
+            domain_counts.get("thanhnien.vn",   0),
+        ]
+    else:
+        # Không tìm thấy cột domain -> vẫn vẽ được nhưng để giá trị 0
+        print("[visualize_collection] CẢNH BÁO: không tìm thấy cột domain/source, "
+              "sẽ bỏ qua hình phân bổ nguồn báo (collection_02_domain_donut.png).")
+        dom_labels = ["VnExpress", "VietnamNet", "Thanh Niên"]
+        dom_values = [0, 0, 0]
     dom_colors = [BLUE, GREEN, CORAL]
  
     sub = df["sub_category"].value_counts().head(8)
  
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        timeline = (
-            df[df["year"] >= 2024]
-            .groupby(df["month"].astype(str))
-            .size()
-            .reset_index(name="count")
-            .sort_values("month")
-        )
+        if has_date:
+            timeline = (
+                df[df["year"] >= 2024]
+                .groupby(df["month"].astype(str))
+                .size()
+                .reset_index(name="count")
+                .sort_values("month")
+            )
+        else:
+            timeline = pd.DataFrame(columns=["month", "count"])
  
-    cluster_dist = df_cl["label"].value_counts()
+    cluster_dist = df_cl[label_col].value_counts()
     label_map = {
-        "Phan_cung": "Phần cứng",
-        "Tri_tue_nhan_tao": "AI",
-        "An_ninh_mang": "An ninh mạng",
-        "Mobile": "Mobile",
-        "Software": "Software",
+        "Phan_cung":         "Phần cứng",
+        "Tri_tue_nhan_tao":  "AI",
+        "Hang_khong_vu_tru": "Hàng không - Vũ trụ",
+        "Mobile":            "Mobile",
+        "Software":          "Software",
     }
     cl_labels = [label_map.get(l, l) for l in cluster_dist.index]
     cl_values = cluster_dist.values.tolist()
@@ -131,15 +184,23 @@ def run_collection_viz(news_csv=NEWS_CSV, clustered_csv=CLUSTERED_CSV, out_dir=O
     counts_len, _ = np.histogram(df["content_len"], bins=bins_len)
  
     # ── Vẽ từng hình ───────────────────────────────────────────────────────
-    _fig1_metric_cards(df, df_cl, out_dir)
-    _fig2_domain_donut(dom_labels, dom_values, dom_colors, out_dir)
+    _fig1_metric_cards(df, df_cl, label_col, out_dir)
+    if has_domain:
+        _fig2_domain_donut(dom_labels, dom_values, dom_colors, out_dir)
+    else:
+        print("[visualize_collection] Bỏ qua collection_02_domain_donut.png (thiếu dữ liệu domain).")
     _fig3_subcategory(sub, out_dir)
-    _fig4_timeline(timeline, out_dir)
+    if has_date and len(timeline) > 0:
+        _fig4_timeline(timeline, out_dir)
+    else:
+        print("[visualize_collection] Bỏ qua collection_04_timeline.png (thiếu dữ liệu ngày).")
     _fig5_cluster_donut(cl_labels, cl_values, out_dir)
     _fig6_top_tags(top_tags, out_dir)
     _fig7_content_length(labels_len, counts_len, out_dir)
-    _fig8_dashboard(dom_labels, dom_values, dom_colors,
-                    sub, timeline,
+    _fig8_dashboard(dom_labels if has_domain else None,
+                    dom_values if has_domain else None,
+                    dom_colors,
+                    sub, timeline if (has_date and len(timeline) > 0) else None,
                     cl_labels, cl_values,
                     labels_len, counts_len, out_dir)
  
@@ -150,13 +211,13 @@ def run_collection_viz(news_csv=NEWS_CSV, clustered_csv=CLUSTERED_CSV, out_dir=O
 # CÁC HÀM VẼ TỪNG HÌNH
 # ═══════════════════════════════════════════════════════════════════════════════
  
-def _fig1_metric_cards(df, df_cl, out_dir):
+def _fig1_metric_cards(df, df_cl, label_col, out_dir):
     """Hình 1 – 4 metric cards tổng quan."""
     avg_len = int(df["main_content"].str.len().fillna(0).mean())
     metrics = [
         ("Tổng bài viết",  f"{len(df):,}",   "raw articles scraped"),
         ("Nguồn báo",      "3",               "vnexpress · vietnamnet\n· thanhnien"),
-        ("Nhãn K-Means",   str(df_cl["label"].nunique()), "cụm phân loại"),
+        ("Nhãn K-Means",   str(df_cl[label_col].nunique()), "cụm phân loại"),
         ("Avg. content",   f"{avg_len:,}",    "ký tự / bài viết"),
     ]
     fig, axes = plt.subplots(1, 4, figsize=(14, 3))
@@ -313,14 +374,21 @@ def _fig8_dashboard(dom_labels, dom_values, dom_colors,
  
     # 8a: Domain donut
     ax1 = fig.add_subplot(gs[0, 0])
-    ax1.pie(dom_values, colors=dom_colors, startangle=90,
-            autopct="%1.0f%%", pctdistance=0.78,
-            wedgeprops=dict(width=0.48, edgecolor="white", linewidth=2))
-    for t in ax1.texts: t.set_fontsize(9)
-    ax1.set_title("Nguồn báo", fontsize=11, pad=8)
-    ax1.legend([mpatches.Patch(color=c) for c in dom_colors], dom_labels,
-               loc="lower center", bbox_to_anchor=(0.5, -0.14),
-               ncol=3, fontsize=7.5, frameon=False)
+    if dom_values is not None and sum(dom_values) > 0:
+        ax1.pie(dom_values, colors=dom_colors, startangle=90,
+                autopct="%1.0f%%", pctdistance=0.78,
+                wedgeprops=dict(width=0.48, edgecolor="white", linewidth=2))
+        for t in ax1.texts: t.set_fontsize(9)
+        ax1.set_title("Nguồn báo", fontsize=11, pad=8)
+        ax1.legend([mpatches.Patch(color=c) for c in dom_colors], dom_labels,
+                   loc="lower center", bbox_to_anchor=(0.5, -0.14),
+                   ncol=3, fontsize=7.5, frameon=False)
+    else:
+        ax1.text(0.5, 0.5, "Không có dữ liệu\nnguồn báo (domain)",
+                  ha="center", va="center", fontsize=9, color="#999",
+                  transform=ax1.transAxes)
+        ax1.set_title("Nguồn báo", fontsize=11, pad=8)
+        ax1.axis("off")
  
     # 8b: Sub-category
     ax2 = fig.add_subplot(gs[0, 1])
@@ -345,19 +413,26 @@ def _fig8_dashboard(dom_labels, dom_values, dom_colors,
  
     # 8d: Timeline (chiếm 2 cột)
     ax4 = fig.add_subplot(gs[1, :2])
-    x = range(len(timeline))
-    ax4.fill_between(list(x), timeline["count"], alpha=0.12, color=BLUE)
-    ax4.plot(list(x), timeline["count"], color=BLUE, linewidth=1.8,
-             marker="o", markersize=3)
-    ax4.set_xticks(list(x))
-    ax4.set_xticklabels([m[2:] for m in timeline["month"]],
-                        rotation=45, ha="right", fontsize=7)
-    ax4.set_title("Timeline thu thập (2024–2026)", fontsize=11, pad=8)
-    jan25 = timeline["month"].tolist().index("2025-01") if "2025-01" in timeline["month"].tolist() else None
-    if jan25:
-        ax4.axvline(x=jan25, color=AMBER, linewidth=1, linestyle="--", alpha=0.8)
-        ax4.text(jan25 + 0.2, timeline["count"].max() * 0.88, "Jan 2025", fontsize=7.5, color=AMBER)
-    ax4.set_axisbelow(True)
+    if timeline is not None and len(timeline) > 0:
+        x = range(len(timeline))
+        ax4.fill_between(list(x), timeline["count"], alpha=0.12, color=BLUE)
+        ax4.plot(list(x), timeline["count"], color=BLUE, linewidth=1.8,
+                 marker="o", markersize=3)
+        ax4.set_xticks(list(x))
+        ax4.set_xticklabels([m[2:] for m in timeline["month"]],
+                            rotation=45, ha="right", fontsize=7)
+        ax4.set_title("Timeline thu thập (2024–2026)", fontsize=11, pad=8)
+        jan25 = timeline["month"].tolist().index("2025-01") if "2025-01" in timeline["month"].tolist() else None
+        if jan25:
+            ax4.axvline(x=jan25, color=AMBER, linewidth=1, linestyle="--", alpha=0.8)
+            ax4.text(jan25 + 0.2, timeline["count"].max() * 0.88, "Jan 2025", fontsize=7.5, color=AMBER)
+        ax4.set_axisbelow(True)
+    else:
+        ax4.text(0.5, 0.5, "Không có dữ liệu ngày đăng\ntrong news_data.csv",
+                  ha="center", va="center", fontsize=10, color="#999",
+                  transform=ax4.transAxes)
+        ax4.set_title("Timeline thu thập", fontsize=11, pad=8)
+        ax4.axis("off")
  
     # 8e: Content length
     ax5 = fig.add_subplot(gs[1, 2])
@@ -386,4 +461,3 @@ def _save(fig, out_dir, filename):
 # ═══════════════════════════════════════════════════════════════════════════════
 if __name__ == "__main__":
     run_collection_viz()
- 
