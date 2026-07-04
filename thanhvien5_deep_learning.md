@@ -52,19 +52,19 @@ Kết quả sau khi chạy `python -B src\deep_learning_model.py`:
 ```text
 status: completed
 backend: sklearn_mlp
-train_size: 12974
-val_size: 2780
-test_size: 2781
-val_accuracy: 0.9540
-val_f1_macro: 0.9523
-test_accuracy: 0.9522
-test_f1_macro: 0.9527
+train_size: 12983
+val_size: 2782
+test_size: 2783
+val_accuracy: 0.9630
+val_f1_macro: 0.9595
+test_accuracy: 0.9655
+test_f1_macro: 0.9632
 ```
 
 Diễn giải ngắn:
 
 ```text
-Mô hình đạt Accuracy khoảng 95.22% và F1-macro khoảng 95.27% trên tập test.
+Mô hình đạt Accuracy khoảng 96.55% và F1-macro khoảng 96.32% trên tập test.
 Kết quả này cho thấy mô hình phân loại văn bản hoạt động ổn định trên các nhóm chủ đề đã được gán nhãn.
 ```
 
@@ -82,7 +82,7 @@ Kết quả này cho thấy mô hình phân loại văn bản hoạt động ổ
 
 ## Nội dung có thể đưa vào báo cáo
 
-Thành viên 5 xây dựng mô hình phân loại văn bản dựa trên dữ liệu đã được gán nhãn từ bước phân cụm. Dữ liệu đầu vào được biểu diễn bằng TF-IDF, sau đó đưa vào mô hình MLPClassifier để học quan hệ giữa nội dung bài viết và nhãn chủ đề. Mô hình được đánh giá bằng Accuracy, F1-score và Confusion Matrix. Kết quả trên tập test đạt Accuracy 95.22% và F1-macro 95.27%, cho thấy mô hình có khả năng phân loại ổn định giữa các nhóm chủ đề.
+Thành viên 5 xây dựng mô hình phân loại văn bản dựa trên dữ liệu đã được gán nhãn từ bước phân cụm. Dữ liệu đầu vào được biểu diễn bằng TF-IDF, sau đó đưa vào mô hình MLPClassifier để học quan hệ giữa nội dung bài viết và nhãn chủ đề. Mô hình được đánh giá bằng Accuracy, F1-score và Confusion Matrix. Kết quả trên tập test đạt Accuracy 96.55% và F1-macro 96.32%, cho thấy mô hình có khả năng phân loại ổn định giữa các nhóm chủ đề.
 
 ## Nội dung có thể đưa vào slide
 
@@ -90,7 +90,7 @@ Thành viên 5 xây dựng mô hình phân loại văn bản dựa trên dữ li
 Input: train/val/test đã gán nhãn + TF-IDF vectorizer
 Model: MLPClassifier, 2 hidden layers (128, 64)
 Output: model phân loại + metrics + confusion matrix
-Kết quả: Test Accuracy 95.22%, Test F1-macro 95.27%
+Kết quả: Test Accuracy 96.55%, Test F1-macro 96.32%
 ```
 
 ## Lệnh chạy

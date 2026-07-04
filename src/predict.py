@@ -64,11 +64,19 @@ def predict_texts(
     labels = bundle["label_encoder"].inverse_transform(pred_ids)
     return labels.tolist()
 
-
 if __name__ == "__main__":
-    samples = [
-        "tri_tue_nhan_tao hoc_may cong_nghe so",
-        "iphone samsung man_hinh camera pin",
-    ]
-    for text, label in zip(samples, predict_texts(samples)):
-        print(f"{label}: {text}")
+    import pandas as pd
+
+    project_root = _project_root()
+    input_path = os.path.join(project_root, "data/sample_for_labeling.csv")
+    output_path = os.path.join(project_root, "data/sample_predicted.csv")
+
+    df = pd.read_csv(input_path)
+
+    # Tự động chọn cột text đúng
+    text_col = "processed_content" if "processed_content" in df.columns else "main_content"
+
+    df["predicted_label"] = predict_texts(df[text_col].fillna("").tolist())
+    df.to_csv(output_path, index=False, encoding="utf-8-sig")
+    print(f"Done! Saved to {output_path}")
+    print(df["predicted_label"].value_counts())
