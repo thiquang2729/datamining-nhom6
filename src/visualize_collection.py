@@ -119,6 +119,11 @@ def run_collection_viz(news_csv=NEWS_CSV, clustered_csv=CLUSTERED_CSV, out_dir=O
               "Sẽ bỏ qua hình Timeline (collection_04_timeline.png).")
  
     df_cl = pd.read_csv(clustered_csv)
+    print("=" * 50)
+    print(df_cl.columns.tolist())
+    print(df_cl.head())
+    print(df_cl["label"].value_counts(dropna=False))
+    print("=" * 50)
     # cluster_news.py ghi nhãn vào cột "sub_category" (không phải "label")
     label_col = _find_col(df_cl, ["sub_category", "label"], what="nhãn cụm")
  
@@ -194,6 +199,9 @@ def run_collection_viz(news_csv=NEWS_CSV, clustered_csv=CLUSTERED_CSV, out_dir=O
         _fig4_timeline(timeline, out_dir)
     else:
         print("[visualize_collection] Bỏ qua collection_04_timeline.png (thiếu dữ liệu ngày).")
+        print("label_col =", label_col)
+        print("cl_labels =", cl_labels)
+        print("cl_values =", cl_values)
     _fig5_cluster_donut(cl_labels, cl_values, out_dir)
     _fig6_top_tags(top_tags, out_dir)
     _fig7_content_length(labels_len, counts_len, out_dir)
@@ -210,36 +218,6 @@ def run_collection_viz(news_csv=NEWS_CSV, clustered_csv=CLUSTERED_CSV, out_dir=O
 # ═══════════════════════════════════════════════════════════════════════════════
 # CÁC HÀM VẼ TỪNG HÌNH
 # ═══════════════════════════════════════════════════════════════════════════════
- 
-def _fig1_metric_cards(df, df_cl, label_col, out_dir):
-    """Hình 1 – 4 metric cards tổng quan."""
-    avg_len = int(df["main_content"].str.len().fillna(0).mean())
-    metrics = [
-        ("Tổng bài viết",  f"{len(df):,}",   "raw articles scraped"),
-        ("Nguồn báo",      "3",               "vnexpress · vietnamnet\n· thanhnien"),
-        ("Nhãn K-Means",   str(df_cl[label_col].nunique()), "cụm phân loại"),
-        ("Avg. content",   f"{avg_len:,}",    "ký tự / bài viết"),
-    ]
-    fig, axes = plt.subplots(1, 4, figsize=(14, 3))
-    fig.patch.set_facecolor("#F7F7F5")
-    for ax, (title, val, sub) in zip(axes, metrics):
-        ax.set_facecolor("white")
-        ax.set_xlim(0, 1); ax.set_ylim(0, 1)
-        ax.axis("off")
-        ax.text(0.5, 0.80, title.upper(), ha="center", va="center",
-                fontsize=9, color="#888", transform=ax.transAxes)
-        ax.text(0.5, 0.48, val, ha="center", va="center",
-                fontsize=28, color="#111", fontweight="500", transform=ax.transAxes)
-        ax.text(0.5, 0.16, sub, ha="center", va="center",
-                fontsize=9, color="#888", transform=ax.transAxes)
-        for spine in ax.spines.values():
-            spine.set_visible(True)
-            spine.set_linewidth(0.5)
-            spine.set_edgecolor("#ddd")
-    plt.suptitle("Data Collection — Nhóm 6 Data Mining",
-                 fontsize=13, y=1.04, color="#333")
-    plt.tight_layout(pad=1.2)
-    _save(fig, out_dir, "collection_01_metric_cards.png")
  
  
 def _fig2_domain_donut(labels, values, colors, out_dir):
@@ -305,28 +283,7 @@ def _fig4_timeline(timeline, out_dir):
     _save(fig, out_dir, "collection_04_timeline.png")
  
  
-def _fig5_cluster_donut(labels, values, out_dir):
-    """Hình 5 – Donut phân bổ nhãn K-Means."""
-    fig, ax = plt.subplots(figsize=(7, 5.5))
-    colors = PALETTE[:5]
-    wedges, _, autotexts = ax.pie(
-        values, colors=colors, autopct="%1.1f%%",
-        startangle=90, pctdistance=0.80,
-        wedgeprops=dict(width=0.48, edgecolor="white", linewidth=2),
-    )
-    for at in autotexts:
-        at.set_fontsize(10); at.set_color("white"); at.set_fontweight("500")
-    ax.legend(
-        [mpatches.Patch(color=c) for c in colors],
-        [f"{l}  ({v:,})" for l, v in zip(labels, values)],
-        loc="lower center", bbox_to_anchor=(0.5, -0.13),
-        ncol=2, fontsize=9, frameon=False,
-    )
-    ax.set_title("Phân bổ nhãn sau phân cụm K-Means", fontsize=12, pad=14, color="#333")
-    plt.tight_layout()
-    _save(fig, out_dir, "collection_05_cluster_donut.png")
- 
- 
+
 def _fig6_top_tags(top_tags, out_dir):
     """Hình 6 – Horizontal bar top tags."""
     tag_colors = [BLUE, PURPLE, GRAY, GREEN, PURPLE, GRAY, BLUE, BLUE, CORAL]
@@ -359,92 +316,6 @@ def _fig7_content_length(labels_len, counts_len, out_dir):
     plt.tight_layout()
     _save(fig, out_dir, "collection_07_content_length.png")
  
- 
-def _fig8_dashboard(dom_labels, dom_values, dom_colors,
-                    sub, timeline,
-                    cl_labels, cl_values,
-                    labels_len, counts_len, out_dir):
-    """Hình 8 – Dashboard tổng hợp 2×3."""
-    fig = plt.figure(figsize=(16, 10))
-    fig.suptitle(
-        "Data Collection — Visualization & Insight  |  Nhóm 6 Data Mining",
-        fontsize=14, fontweight="500", y=0.98, color="#222",
-    )
-    gs = gridspec.GridSpec(2, 3, figure=fig, hspace=0.48, wspace=0.35)
- 
-    # 8a: Domain donut
-    ax1 = fig.add_subplot(gs[0, 0])
-    if dom_values is not None and sum(dom_values) > 0:
-        ax1.pie(dom_values, colors=dom_colors, startangle=90,
-                autopct="%1.0f%%", pctdistance=0.78,
-                wedgeprops=dict(width=0.48, edgecolor="white", linewidth=2))
-        for t in ax1.texts: t.set_fontsize(9)
-        ax1.set_title("Nguồn báo", fontsize=11, pad=8)
-        ax1.legend([mpatches.Patch(color=c) for c in dom_colors], dom_labels,
-                   loc="lower center", bbox_to_anchor=(0.5, -0.14),
-                   ncol=3, fontsize=7.5, frameon=False)
-    else:
-        ax1.text(0.5, 0.5, "Không có dữ liệu\nnguồn báo (domain)",
-                  ha="center", va="center", fontsize=9, color="#999",
-                  transform=ax1.transAxes)
-        ax1.set_title("Nguồn báo", fontsize=11, pad=8)
-        ax1.axis("off")
- 
-    # 8b: Sub-category
-    ax2 = fig.add_subplot(gs[0, 1])
-    ax2.barh(sub.index[::-1], sub.values[::-1], color=BLUE, height=0.6)
-    ax2.set_title("Sub-category", fontsize=11, pad=8)
-    ax2.tick_params(axis="y", labelsize=7.5)
-    ax2.set_axisbelow(True)
-    ax2.spines["left"].set_visible(False)
- 
-    # 8c: Cluster donut
-    ax3 = fig.add_subplot(gs[0, 2])
-    colors3 = PALETTE[:5]
-    ax3.pie(cl_values, colors=colors3, startangle=90,
-            autopct="%1.0f%%", pctdistance=0.80,
-            wedgeprops=dict(width=0.48, edgecolor="white", linewidth=2))
-    for t in ax3.texts: t.set_fontsize(8)
-    ax3.set_title("Cụm K-Means", fontsize=11, pad=8)
-    short_labels = [l.split("/")[0].strip().split("&")[0].strip() for l in cl_labels]
-    ax3.legend([mpatches.Patch(color=c) for c in colors3], short_labels,
-               loc="lower center", bbox_to_anchor=(0.5, -0.18),
-               ncol=2, fontsize=7, frameon=False)
- 
-    # 8d: Timeline (chiếm 2 cột)
-    ax4 = fig.add_subplot(gs[1, :2])
-    if timeline is not None and len(timeline) > 0:
-        x = range(len(timeline))
-        ax4.fill_between(list(x), timeline["count"], alpha=0.12, color=BLUE)
-        ax4.plot(list(x), timeline["count"], color=BLUE, linewidth=1.8,
-                 marker="o", markersize=3)
-        ax4.set_xticks(list(x))
-        ax4.set_xticklabels([m[2:] for m in timeline["month"]],
-                            rotation=45, ha="right", fontsize=7)
-        ax4.set_title("Timeline thu thập (2024–2026)", fontsize=11, pad=8)
-        jan25 = timeline["month"].tolist().index("2025-01") if "2025-01" in timeline["month"].tolist() else None
-        if jan25:
-            ax4.axvline(x=jan25, color=AMBER, linewidth=1, linestyle="--", alpha=0.8)
-            ax4.text(jan25 + 0.2, timeline["count"].max() * 0.88, "Jan 2025", fontsize=7.5, color=AMBER)
-        ax4.set_axisbelow(True)
-    else:
-        ax4.text(0.5, 0.5, "Không có dữ liệu ngày đăng\ntrong news_data.csv",
-                  ha="center", va="center", fontsize=10, color="#999",
-                  transform=ax4.transAxes)
-        ax4.set_title("Timeline thu thập", fontsize=11, pad=8)
-        ax4.axis("off")
- 
-    # 8e: Content length
-    ax5 = fig.add_subplot(gs[1, 2])
-    ax5.bar(labels_len, counts_len, color=BLUE, width=0.6)
-    ax5.set_title("Độ dài nội dung", fontsize=11, pad=8)
-    ax5.tick_params(axis="x", labelsize=7.5, rotation=30)
-    ax5.set_axisbelow(True)
- 
-    out = os.path.join(out_dir, "collection_08_dashboard.png")
-    plt.savefig(out, bbox_inches="tight", dpi=180)
-    plt.close()
-    print(f"  ✓ collection_08_dashboard.png")
  
  
 # ── Helper lưu file ─────────────────────────────────────────────────────────
