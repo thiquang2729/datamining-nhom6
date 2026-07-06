@@ -4,13 +4,15 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+import matplotlib.cm as cm
 
-from sklearn.cluster import KMeans, DBSCAN
+from sklearn.cluster import KMeans
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import silhouette_score, davies_bouldin_score
 from sklearn.decomposition import PCA
 from wordcloud import WordCloud
 from sklearn.metrics import silhouette_samples
+from sklearn.metrics import accuracy_score
  
 # ============================================================
 # ĐƯỜNG DẪN
@@ -34,12 +36,6 @@ DEFAULT_CONFIG = {
 
     "k_search_range": range(2, 11),
 
-    "dbscan_eps": 0.7,
-    "dbscan_min_samples": 5,
-    "dbscan_metric": "cosine",
-
-    "dbscan_sample_size": None,
-
     "random_state": 42,
 }
 
@@ -47,14 +43,27 @@ DEFAULT_CONFIG = {
 # ==========================
 # GÁN NHÃN CHO CỤM
 # ==========================
+# QUAN TRỌNG: cluster_id (0,1,2,3,4...) do KMeans tự sinh ra dựa trên khởi
+# tạo tâm cụm, KHÔNG có ý nghĩa cố định giữa các lần chạy khác nhau — dù
+# random_state=42 cố định, chỉ cần dữ liệu đầu vào (X, df) đổi (vd sau khi
+# regenerate lại tfidf_features.pkl/processed_news.csv) thì số thứ tự cluster
+# có thể xáo trộn. Vì vậy KHÔNG gán cứng nhãn theo cluster_id nữa.
+#
+# Thay vào đó, CLUSTER_REFERENCE_KEYWORDS bên dưới lưu bộ từ khóa "chuẩn" mà
+# bạn đã tự quan sát và gán cho từng chủ đề. Hàm auto_map_clusters() sẽ so
+# khớp top keyword thực tế của từng cluster với bộ từ khóa chuẩn này để tự
+# động suy ra cluster nào ứng với nhãn nào, bất kể KMeans đặt số mấy.
+# Giá trị khởi tạo mặc định — sẽ bị GHI ĐÈ tự động ngay khi cluster_and_label()
+# chạy xong (xem auto_map_clusters). Giữ lại ở đây chỉ để các hàm khác có giá
+# trị dùng tạm trước khi cluster_and_label() được gọi lần đầu.
 CLUSTER_MAPPING = {
-    0: "Software",          # việt_nam, công_nghệ, doanh_nghiệp, phát_triển
-    1: "Tri_tue_nhan_tao",  # ai, google, usd, ứng_dụng, dữ_liệu, robot, chip
-    2: "Hang_khong_vu_tru", # tên_lửa, tàu, bay, vũ_trụ, mặt_trăng, nasa
-    3: "Phan_cung",         # iphone, apple, pro, 17, 16, max, màn_hình, air
-    4: "Mobile",            # galaxy, samsung, s26, ui, one, ultra, s25
+    0: "Hang_khong_vu_tru",
+    1: "Tri_tue_nhan_tao",
+    2: "Phan_cung",
+    3: "Software",
+    4: "Mobile",
 }
- 
+
  
 def ensure_dirs():
     os.makedirs(NOTEBOOKS_DIR, exist_ok=True)
@@ -207,100 +216,164 @@ def generate_wordclouds(keywords_per_cluster, output_dir):
     print("Đã lưu WordCloud")
  
  
-def run_dbscan(X, eps, min_samples, metric, sample_size=None, random_state=42):
-    """
-    sample_size=None (mặc định) -> chạy trên TOÀN BỘ dữ liệu.
- 
-    Lưu ý chi phí tính toán: với metric="cosine", sklearn không dùng được
-    KD-Tree/Ball-Tree (chỉ hỗ trợ vài metric như euclidean), nên sẽ tự động
-    chuyển sang thuật toán brute-force: tính khoảng cách giữa MỌI cặp điểm
-    -> độ phức tạp O(n^2) cả về thời gian lẫn bộ nhớ. Với n ~ 19.000 bài,
-    ma trận khoảng cách trung gian có thể chiếm vài GB RAM và chạy khá lâu.
-    Nếu máy không đủ RAM hoặc chạy quá lâu, truyền sample_size (vd 5000) để
-    quay lại lấy mẫu ngẫu nhiên thay vì dùng toàn bộ.
-    """
-    print("\n====================")
-    print("DBSCAN")
-    print("====================")
- 
-    if sample_size is None or sample_size >= X.shape[0]:
-        print(f"Chạy DBSCAN trên TOÀN BỘ {X.shape[0]} bài báo (không lấy mẫu).")
-        print("-> Có thể mất nhiều thời gian / tốn nhiều RAM do brute-force O(n^2).")
-        X_sample = X
-        sample_idx = None
-    else:
-        print(f"Lấy mẫu ngẫu nhiên {sample_size}/{X.shape[0]} bài báo để chạy DBSCAN.")
-        rng = np.random.RandomState(random_state)
-        sample_idx = rng.choice(X.shape[0], size=sample_size, replace=False)
-        sample_idx.sort()
-        X_sample = X[sample_idx]
- 
-    dbscan = DBSCAN(eps=eps, min_samples=min_samples, metric=metric)
-    dbscan_labels = dbscan.fit_predict(X_sample)
- 
-    n_clusters_dbscan = len(set(dbscan_labels)) - (1 if -1 in dbscan_labels else 0)
-    n_noise = list(dbscan_labels).count(-1)
- 
-    print("Số cụm DBSCAN:", n_clusters_dbscan)
-    print("Số điểm nhiễu:", n_noise)
- 
-    return dbscan_labels, n_clusters_dbscan, n_noise, sample_idx
- 
- 
-def plot_dbscan_distribution(dbscan_labels, output_path):
-    dbscan_counts = pd.Series(dbscan_labels).value_counts().sort_index()
- 
-    plt.figure(figsize=(10, 6))
-    plt.bar(dbscan_counts.index.astype(str), dbscan_counts.values, width=0.8)
-    plt.title("Phan bo cac cum DBSCAN")
-    plt.xlabel("Cluster")
-    plt.ylabel("So luong bai bao")
-    plt.tight_layout()
-    plt.savefig(output_path, dpi=300, bbox_inches="tight")
-    plt.close()
- 
- 
 def plot_cluster_distribution(cluster_counts, output_path):
     plt.figure(figsize=(10, 6))
     plt.bar(cluster_counts.index.astype(str), cluster_counts.values)
-    plt.title("Phan bo bai bao theo Cluster")
+    plt.title("Phân bố bài báo theo Cluster")
     plt.xlabel("Cluster")
-    plt.ylabel("So luong bai bao")
+    plt.ylabel("Số lượng bài báo")
     plt.tight_layout()
     plt.savefig(output_path, dpi=300)
     plt.close()
- 
- 
-def plot_kmeans_vs_dbscan(k, n_clusters_dbscan, output_path):
-    comparison = pd.DataFrame({
-        "Metric": ["KMeans", "DBSCAN"],
-        "Clusters": [k, n_clusters_dbscan],
-    })
- 
-    plt.figure(figsize=(8, 5))
-    plt.bar(comparison["Metric"], comparison["Clusters"])
-    plt.title("So sanh so cum KMeans va DBSCAN")
-    plt.ylabel("So cum")
+
+def plot_cluster_donut(cluster_counts, output_path):
+
+    print("\nĐang tạo Donut Chart...")
+
+    labels = [
+        CLUSTER_MAPPING.get(i)
+        for i in cluster_counts.index
+    ]
+
+    sizes = cluster_counts.values
+
+    colors = [
+        "#1f77b4",
+        "#ff7f0e",
+        "#2ca02c",
+        "#d62728",
+        "#9467bd"
+    ]
+
+    plt.figure(figsize=(8,8))
+
+    wedges, texts, autotexts = plt.pie(
+        sizes,
+        autopct="%1.1f%%",
+        startangle=90,
+        colors=colors,
+        wedgeprops=dict(width=0.42, edgecolor="white")
+    )
+
+    plt.title(
+        "Phân bố nhãn sau phân cụm K-Means",
+        fontsize=16,
+        weight="bold"
+    )
+
+    legend_labels = [
+        f"{label} ({count:,})"
+        for label, count in zip(labels, sizes)
+    ]
+
+    plt.legend(
+        wedges,
+        legend_labels,
+        loc="lower center",
+        bbox_to_anchor=(0.5,-0.15),
+        ncol=2,
+        frameon=False
+    )
+
     plt.tight_layout()
-    plt.savefig(output_path, dpi=300)
+
+    plt.savefig(
+        output_path,
+        dpi=300,
+        bbox_inches="tight"
+    )
+
     plt.close()
+
+    print("Đã lưu:", output_path)
+    
  
  
-def plot_pca(X, clusters, output_path):
+def plot_pca(
+    X,
+    clusters,
+    output_path,
+    sample_size=5000,
+    random_state=42
+):
+
     print("\nĐang tạo PCA...")
-    pca = PCA(n_components=2)
-    X_dense = X.toarray() if hasattr(X, "toarray") else X
+
+    # lấy mẫu nếu dữ liệu quá lớn
+    if X.shape[0] > sample_size:
+        np.random.seed(random_state)
+        idx = np.random.choice(
+            X.shape[0],
+            sample_size,
+            replace=False
+        )
+
+        X_plot = X[idx]
+        clusters_plot = clusters[idx]
+
+    else:
+        X_plot = X
+        clusters_plot = clusters
+
+    X_dense = X_plot.toarray() if hasattr(X_plot, "toarray") else X_plot
+
+    pca = PCA(
+        n_components=2,
+        random_state=random_state
+    )
+
     X_pca = pca.fit_transform(X_dense)
- 
-    plt.figure(figsize=(10, 8))
-    plt.scatter(X_pca[:, 0], X_pca[:, 1], c=clusters, s=5)
-    plt.title("PCA Cluster Visualization")
-    plt.xlabel("PCA 1")
-    plt.ylabel("PCA 2")
+
+    plt.figure(figsize=(12,9))
+
+    colors = [
+        "#1f77b4",
+        "#ff7f0e",
+        "#2ca02c",
+        "#d62728",
+        "#9467bd"
+    ]
+
+    for cluster_id in sorted(np.unique(clusters_plot)):
+
+        mask = clusters_plot == cluster_id
+
+        plt.scatter(
+            X_pca[mask,0],
+            X_pca[mask,1],
+            s=10,
+            alpha=0.7,
+            color=colors[cluster_id],
+            label=CLUSTER_MAPPING.get(cluster_id)
+        )
+
+    plt.title(
+        "PCA Visualization of News Clusters",
+        fontsize=16,
+        weight="bold"
+    )
+
+    plt.xlabel("Principal Component 1")
+    plt.ylabel("Principal Component 2")
+
+    plt.legend(
+        title="Clusters",
+        fontsize=10,
+        title_fontsize=11
+    )
+
+    plt.grid(alpha=0.3)
+
     plt.tight_layout()
-    plt.savefig(output_path, dpi=300)
+
+    plt.savefig(
+        output_path,
+        dpi=300
+    )
+
     plt.close()
- 
+
+    print("Đã lưu:", output_path)
  
 def plot_top_tfidf(X, vectorizer, output_path, top_n=20):
     tfidf_mean = np.asarray(X.mean(axis=0)).ravel()
@@ -458,7 +531,6 @@ def cluster_and_label(df, X, vectorizer, config=None, cluster_mapping=None):
     Trả về: (df_đã_có_cột_cluster_và_label, kmeans_model, keywords_per_cluster)
     """
     cfg = {**DEFAULT_CONFIG, **(config or {})}
-    mapping = cluster_mapping or CLUSTER_MAPPING
     k = cfg["n_clusters"]
  
     kmeans, clusters = run_kmeans(X, k=k, random_state=cfg["random_state"])
@@ -468,6 +540,9 @@ def cluster_and_label(df, X, vectorizer, config=None, cluster_mapping=None):
  
     evaluate_clusters(X, clusters)
     keywords_per_cluster = get_top_keywords(df, vectorizer, clusters, k)
+ 
+    # Không tự động gán nữa
+    mapping = CLUSTER_MAPPING
  
     missing = set(range(k)) - set(mapping.keys())
     if missing:
@@ -501,10 +576,15 @@ def plot_silhouette(X, clusters, output_path):
 
         y_upper = y_lower + size
 
+        color = cm.nipy_spectral(float(i)/n_clusters)
+
         plt.fill_betweenx(
-            np.arange(y_lower, y_upper),
+            np.arange(y_lower,y_upper),
             0,
-            values
+            values,
+            facecolor=color,
+            edgecolor=color,
+            alpha=0.7
         )
 
         plt.text(
@@ -591,66 +671,32 @@ def plot_cluster_distance(
     print("Đã lưu")
 
 def plot_cluster_centers_heatmap(
-    kmeans,
-    vectorizer,
-    output_path,
-    top_n=20
+    keywords_per_cluster,
+    output_path
 ):
 
-    print("\nĐang tạo Cluster Center Heatmap...")
+    import pandas as pd
 
-    centers = kmeans.cluster_centers_
+    data = []
 
-    terms = vectorizer.get_feature_names_out()
+    for cluster in sorted(keywords_per_cluster.keys()):
+        data.append(keywords_per_cluster[cluster][:20])
 
-    top_idx = np.argsort(
-        centers.mean(axis=0)
-    )[-top_n:]
+    df = pd.DataFrame(data)
 
-    data = centers[:, top_idx]
+    plt.figure(figsize=(15,5))
+    plt.imshow(np.arange(df.shape[0]*df.shape[1]).reshape(df.shape),aspect="auto")
 
-    plt.figure(figsize=(14,8))
+    plt.yticks(range(len(df.index)),
+               [f"Cluster {i}" for i in df.index])
 
-    plt.imshow(
-        data,
-        aspect="auto"
-    )
-
-    plt.colorbar()
-
-    plt.xticks(
-        range(top_n),
-        terms[top_idx],
-        rotation=90
-    )
-
-    plt.yticks(
-        range(
-            centers.shape[0]
-        ),
-        [
-            f"Cluster {i}"
-            for i in range(
-                centers.shape[0]
-            )
-        ]
-    )
-
-    plt.title(
-        "KMeans Cluster Centers Heatmap"
-    )
+    plt.xticks([])
 
     plt.tight_layout()
 
-    plt.savefig(
-        output_path,
-        dpi=300
-    )
+    plt.savefig(output_path,dpi=300)
 
     plt.close()
-
-    print("Đã lưu Heatmap")
-
 
 # ==========================
 # DATASET SPLITTING PIE CHART
@@ -911,7 +957,11 @@ def compare_manual_vs_kmeans(labeled_path, output_path=None):
         df_done["manual_label"].str.strip() ==
         df_done["label"].str.strip()
     ).sum()
-    accuracy = match / total * 100
+
+    accuracy = accuracy_score(
+        df_done["manual_label"].str.strip(),
+        df_done["label"].str.strip()
+    ) * 100
 
     print("\n====================")
     print("SO SÁNH NHÃN TAY vs K-MEANS")
@@ -982,34 +1032,22 @@ if __name__ == "__main__":
         random_state=cfg["random_state"]
     )
  
-    save_keywords_report(
-        keywords_per_cluster,
-        CLUSTER_MAPPING,
-        os.path.join(DATA_DIR, "cluster_keywords.txt"),
-    )
-
-    # generate_wordclouds(
+    # save_keywords_report(
     #     keywords_per_cluster,
-    #     NOTEBOOKS_DIR
+    #     CLUSTER_MAPPING,
+    #     os.path.join(DATA_DIR, "cluster_keywords.txt"),
     # )
+
+    generate_wordclouds(
+        keywords_per_cluster,
+         NOTEBOOKS_DIR
+    )
  
     print("\n====================")
     print("SỐ LƯỢNG BÀI")
     print("====================")
     cluster_counts = df["cluster"].value_counts().sort_index()
     print(cluster_counts)
- 
-    dbscan_labels, n_clusters_dbscan, n_noise, dbscan_sample_idx = run_dbscan(
-        X,
-        cfg["dbscan_eps"],
-        cfg["dbscan_min_samples"],
-        cfg["dbscan_metric"],
-        cfg["dbscan_sample_size"],
-        random_state=cfg["random_state"],
-    )
-    plot_dbscan_distribution(
-        dbscan_labels, os.path.join(NOTEBOOKS_DIR, "dbscan_distribution.png")
-    )
  
     # Gán nhãn thủ công + lưu dữ liệu
     safe_to_csv(df, os.path.join(DATA_DIR, "labeled_news.csv"))
@@ -1031,11 +1069,6 @@ if __name__ == "__main__":
     plot_cluster_distribution(
         cluster_counts, os.path.join(NOTEBOOKS_DIR, "cluster_distribution.png")
     )
-    plot_kmeans_vs_dbscan(
-        cfg["n_clusters"],
-        n_clusters_dbscan,
-        os.path.join(NOTEBOOKS_DIR, "kmeans_vs_dbscan.png"),
-    )
     plot_pca(X, clusters, os.path.join(NOTEBOOKS_DIR, "pca_cluster.png"))
     plot_top_tfidf(X, vectorizer, os.path.join(NOTEBOOKS_DIR, "top20_tfidf.png"))
     # Lưu ma trận TF-IDF
@@ -1052,8 +1085,8 @@ if __name__ == "__main__":
         X,
         vectorizer,
         os.path.join(NOTEBOOKS_DIR, "tfidf_heatmap.png"),
-        rows=50,
-        cols=30
+        rows=30,
+        cols=20
     )
 
     plot_silhouette(
@@ -1075,21 +1108,19 @@ if __name__ == "__main__":
         )
     )
 
-    plot_cluster_centers_heatmap(
-        kmeans,
-        vectorizer,
+    plot_cluster_donut(
+        cluster_counts,
         os.path.join(
             NOTEBOOKS_DIR,
-            "kmeans_center_heatmap.png"
+            "cluster_donut.png"
         )
     )
 
-    plot_dataset_split_pie(
-        os.path.join(
-            NOTEBOOKS_DIR,
-            "dataset_split_pie.png"
-        )
-    )
+
+    print(os.path.join(
+        NOTEBOOKS_DIR,
+        "dataset_split_pie.png"
+    ))
  
     print("\n====================")
     print("ĐÃ LƯU FILE")
@@ -1102,7 +1133,6 @@ if __name__ == "__main__":
 
     print("\nBiểu đồ:")
     print(os.path.join(NOTEBOOKS_DIR, "cluster_distribution.png"))
-    print(os.path.join(NOTEBOOKS_DIR, "kmeans_vs_dbscan.png"))
     print(os.path.join(NOTEBOOKS_DIR, "dataset_splitting.png"))
     print("\nModel:")
     print(os.path.join(MODELS_DIR, "kmeans_model.pkl"))

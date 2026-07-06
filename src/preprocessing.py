@@ -371,14 +371,21 @@ def visualize_preprocessing_report(
 
 # --- Chạy quy trình tiền xử lý dữ liệu ---
 if __name__ == "__main__":
-    DATA_PATH = "data/cleaned_news.csv"
-    STOPWORD_PATH = "data/vietnamese-stopwords.txt"
-    OUTPUT_MATRIX = "data/tfidf_features.pkl"
-    OUTPUT_VECTORIZER = "models/vectorizer.pkl"
-    OUTPUT_PROCESSED = "data/processed_news.csv"
-    
-    if not os.path.exists("models"):
-        os.makedirs("models")
+    # Tính đường dẫn theo vị trí thực tế của file này (__file__),
+    # để chạy đúng dù gọi từ thư mục gốc dự án hay từ trong src/.
+    SRC_DIR = os.path.dirname(os.path.abspath(__file__))
+    PROJECT_ROOT = os.path.dirname(SRC_DIR)
+    DATA_DIR = os.path.join(PROJECT_ROOT, "data")
+    MODELS_DIR = os.path.join(PROJECT_ROOT, "models")
+
+    DATA_PATH = os.path.join(DATA_DIR, "cleaned_news.csv")
+    STOPWORD_PATH = os.path.join(DATA_DIR, "vietnamese-stopwords.txt")
+    OUTPUT_MATRIX = os.path.join(DATA_DIR, "tfidf_features.pkl")
+    OUTPUT_VECTORIZER = os.path.join(MODELS_DIR, "vectorizer.pkl")
+    OUTPUT_PROCESSED = os.path.join(DATA_DIR, "processed_news.csv")
+
+    os.makedirs(DATA_DIR, exist_ok=True)
+    os.makedirs(MODELS_DIR, exist_ok=True)
 
     if os.path.exists(DATA_PATH):
         print(f"--- Đang đọc dữ liệu từ {DATA_PATH} ---")
